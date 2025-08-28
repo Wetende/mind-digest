@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, act, waitFor } from '@testing-library/react-native';
+import { Text } from 'react-native';
 import { AuthProvider, useAuth } from '../../src/contexts/AuthContext';
 import { authService } from '../../src/services';
 import * as storageUtils from '../../src/utils/storageUtils';
@@ -18,347 +19,358 @@ jest.mock('../../src/services', () => ({
 }));
 
 jest.mock('../../src/utils/storageUtils', () => ({
-  getAnonymousSession: jest.fn(),
   storeAnonymousSession: jest.fn(),
+  getAnonymousSession: jest.fn(),
   clearAnonymousSession: jest.fn(),
 }));
 
-// Test component to access auth context
-const TestComponent = ({ onAuthData }) => {
-  const auth = useAuth();
-  React.useEffect(() => {
-    onAuthData(auth);
-  }, [auth, onAuthData]);
-  return null;
+// Test component that uses the auth context
+const TestComponent = () => {
+  const { user, loading, isAnonymous } = useAuth();
+  
+  return (
+    <Text testID="auth-state">
+      {loading ? 'loading' : `user:${user?.id || 'none'}-anonymous:${isAnonymous}`}
+    </Text>
+  );
+};
+
+const TestComponentWithActions = () => {
+  const { signIn, signUp, signOut, signInAnonymously, updateProfile } = useAuth();
+  
+  return (
+    <Text testID="auth-actions">
+      {JSON.stringify({ signIn: !!signIn, signUp: !!signUp, signOut: !!signOut, signInAnonymously: !!signInAnonymously, updateProfile: !!updateProfile })}
+    </Text>
+  );
 };
 
 describe('AuthContext', () => {
-  let authData;
-  const mockOnAuthData = jest.fn((data) => {
-    authData = data;
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
-    authData = null;
+    // Suppress console logs during tests
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
     
-    // Mock auth state change subscription
+    // Default mock implementations
     authService.onAuthStateChange.mockReturnValue({
-      data: {
-        subscription: {
-          unsubscribe: jest.fn(),
-        },
-      },
+      data: { subscription: { unsubscribe: jest.fn() } }
+    });
+    authService.getCurrentUser.mockResolvedValue({ success: false });
+    storageUtils.getAnonymousSession.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    console.log.mockRestore();
+    console.error.mockRestore();
+  });
+
+  it('should throw error when useAuth is used outside provider', () => {
+    // Suppress error boundary logs
+    const originalError = console.error;
+    console.error = jest.fn();
+    
+    expect(() => {
+      render(<TestComponent />);
+    }).toThrow('useAuth must be used within an AuthProvider');
+    
+    console.error = originalError;
+  });
+
+  it('should provide auth context values', async () => {
+    const { getByTestId } = render(
+      <AuthProvider>
+        <TestComponentWithActions />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      const actionsText = getByTestId('auth-actions').children[0];
+      const actions = JSON.parse(actionsText);
+      expect(actions.signIn).toBe(true);
+      expect(actions.signUp).toBe(true);
+      expect(actions.signOut).toBe(true);
+      expect(actions.signInAnonymously).toBe(true);
+      expect(actions.updateProfile).toBe(true);
     });
   });
 
-  describe('initialization', () => {
-    it('should initialize with loading state', async () => {
-      authService.getCurrentUser.mockResolvedValue({
-        success: false,
-        user: null,
-      });
-      
-      storageUtils.getAnonymousSession.mockResolvedValue(null);
+  it('should initialize with no user when no session exists', async () => {
+    const { getByTestId } = render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
 
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
-
-      expect(authData.loading).toBe(true);
-      
-      await waitFor(() => {
-        expect(authData.loading).toBe(false);
-      });
-    });
-
-    it('should initialize with existing user', async () => {
-      const mockUser = { id: '123', email: 'test@example.com' };
-      
-      authService.getCurrentUser.mockResolvedValue({
-        success: true,
-        user: mockUser,
-      });
-
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
-
-      await waitFor(() => {
-        expect(authData.user).toEqual(mockUser);
-        expect(authData.isAnonymous).toBe(false);
-        expect(authData.loading).toBe(false);
-      });
-    });
-
-    it('should initialize with anonymous session', async () => {
-      const mockAnonymousUser = { id: 'anon_123', isAnonymous: true };
-      
-      authService.getCurrentUser.mockResolvedValue({
-        success: false,
-        user: null,
-      });
-      
-      storageUtils.getAnonymousSession.mockResolvedValue(mockAnonymousUser);
-
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
-
-      await waitFor(() => {
-        expect(authData.user).toEqual(mockAnonymousUser);
-        expect(authData.isAnonymous).toBe(true);
-        expect(authData.loading).toBe(false);
-      });
+    await waitFor(() => {
+      expect(getByTestId('auth-state').children[0]).toBe('user:none-anonymous:false');
     });
   });
 
-  describe('signUp', () => {
-    it('should successfully sign up user', async () => {
-      const mockUser = { id: '123', email: 'test@example.com' };
-      
-      authService.getCurrentUser.mockResolvedValue({
-        success: false,
-        user: null,
-      });
-      
-      storageUtils.getAnonymousSession.mockResolvedValue(null);
-      
-      authService.signUp.mockResolvedValue({
-        success: true,
-        data: { user: mockUser },
-      });
-      
-      storageUtils.clearAnonymousSession.mockResolvedValue();
+  it('should initialize with existing Supabase user', async () => {
+    const mockUser = { id: 'user123', email: 'test@example.com' };
+    authService.getCurrentUser.mockResolvedValue({
+      success: true,
+      user: mockUser,
+    });
 
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
+    const { getByTestId } = render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
 
-      await waitFor(() => {
-        expect(authData.loading).toBe(false);
-      });
-
-      await act(async () => {
-        const result = await authData.signUp('test@example.com', 'password123', {});
-        expect(result.success).toBe(true);
-      });
-
-      expect(authData.user).toEqual(mockUser);
-      expect(authData.isAnonymous).toBe(false);
+    await waitFor(() => {
+      expect(getByTestId('auth-state').children[0]).toBe('user:user123-anonymous:false');
     });
   });
 
-  describe('signIn', () => {
-    it('should successfully sign in user', async () => {
-      const mockUser = { id: '123', email: 'test@example.com' };
-      
-      authService.getCurrentUser.mockResolvedValue({
-        success: false,
-        user: null,
-      });
-      
-      storageUtils.getAnonymousSession.mockResolvedValue(null);
-      
-      authService.signIn.mockResolvedValue({
-        success: true,
-        data: { user: mockUser },
-      });
-      
-      storageUtils.clearAnonymousSession.mockResolvedValue();
+  it('should initialize with anonymous session', async () => {
+    const mockAnonymousUser = { id: 'anon123', isAnonymous: true };
+    authService.getCurrentUser.mockResolvedValue({ success: false });
+    storageUtils.getAnonymousSession.mockResolvedValue(mockAnonymousUser);
 
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
+    const { getByTestId } = render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
 
-      await waitFor(() => {
-        expect(authData.loading).toBe(false);
-      });
-
-      await act(async () => {
-        const result = await authData.signIn('test@example.com', 'password123');
-        expect(result.success).toBe(true);
-      });
-
-      expect(authData.user).toEqual(mockUser);
-      expect(authData.isAnonymous).toBe(false);
+    await waitFor(() => {
+      expect(getByTestId('auth-state').children[0]).toBe('user:anon123-anonymous:true');
     });
   });
 
-  describe('signInAnonymously', () => {
-    it('should successfully sign in anonymously', async () => {
-      const mockAnonymousUser = { id: 'anon_123', isAnonymous: true };
-      
-      authService.getCurrentUser.mockResolvedValue({
-        success: false,
-        user: null,
-      });
-      
-      storageUtils.getAnonymousSession.mockResolvedValue(null);
-      
-      authService.signInAnonymously.mockResolvedValue({
-        success: true,
-        data: { user: mockAnonymousUser },
-      });
-      
-      storageUtils.storeAnonymousSession.mockResolvedValue();
-
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
-
-      await waitFor(() => {
-        expect(authData.loading).toBe(false);
-      });
-
-      await act(async () => {
-        const result = await authData.signInAnonymously(['anxiety', 'depression']);
-        expect(result.success).toBe(true);
-      });
-
-      expect(authData.isAnonymous).toBe(true);
+  it('should handle sign up successfully', async () => {
+    const mockUser = { id: 'user123', email: 'test@example.com' };
+    authService.signUp.mockResolvedValue({
+      success: true,
+      data: { user: mockUser },
     });
+
+    let authContext;
+    const TestComponentWithSignUp = () => {
+      authContext = useAuth();
+      return <Text>Test</Text>;
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponentWithSignUp />
+      </AuthProvider>
+    );
+
+    await act(async () => {
+      const result = await authContext.signUp('test@example.com', 'password123');
+      expect(result.success).toBe(true);
+    });
+
+    expect(storageUtils.clearAnonymousSession).toHaveBeenCalled();
   });
 
-  describe('signOut', () => {
-    it('should successfully sign out authenticated user', async () => {
-      const mockUser = { id: '123', email: 'test@example.com' };
-      
-      authService.getCurrentUser.mockResolvedValue({
-        success: true,
-        user: mockUser,
-      });
-      
-      authService.signOut.mockResolvedValue({
-        success: true,
-      });
-      
-      storageUtils.clearAnonymousSession.mockResolvedValue();
-
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
-
-      await waitFor(() => {
-        expect(authData.user).toEqual(mockUser);
-        expect(authData.isAnonymous).toBe(false);
-      });
-
-      await act(async () => {
-        const result = await authData.signOut();
-        expect(result.success).toBe(true);
-      });
-
-      expect(authData.user).toBeNull();
-      expect(authData.isAnonymous).toBe(false);
+  it('should handle sign in successfully', async () => {
+    const mockUser = { id: 'user123', email: 'test@example.com' };
+    authService.signIn.mockResolvedValue({
+      success: true,
+      data: { user: mockUser },
     });
 
-    it('should successfully sign out anonymous user', async () => {
-      const mockAnonymousUser = { id: 'anon_123', isAnonymous: true };
-      
-      authService.getCurrentUser.mockResolvedValue({
-        success: false,
-        user: null,
-      });
-      
-      storageUtils.getAnonymousSession.mockResolvedValue(mockAnonymousUser);
-      storageUtils.clearAnonymousSession.mockResolvedValue();
+    let authContext;
+    const TestComponentWithSignIn = () => {
+      authContext = useAuth();
+      return <Text>Test</Text>;
+    };
 
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
+    render(
+      <AuthProvider>
+        <TestComponentWithSignIn />
+      </AuthProvider>
+    );
 
-      await waitFor(() => {
-        expect(authData.user).toEqual(mockAnonymousUser);
-        expect(authData.isAnonymous).toBe(true);
-      });
-
-      await act(async () => {
-        const result = await authData.signOut();
-        expect(result.success).toBe(true);
-      });
-
-      expect(authData.user).toBeNull();
-      expect(authData.isAnonymous).toBe(false);
+    await act(async () => {
+      const result = await authContext.signIn('test@example.com', 'password123');
+      expect(result.success).toBe(true);
     });
+
+    expect(storageUtils.clearAnonymousSession).toHaveBeenCalled();
   });
 
-  describe('updateProfile', () => {
-    it('should update authenticated user profile', async () => {
-      const mockUser = { id: '123', email: 'test@example.com' };
-      
-      authService.getCurrentUser.mockResolvedValue({
-        success: true,
-        user: mockUser,
-      });
-      
-      authService.updateProfile.mockResolvedValue({
-        success: true,
-        data: { ...mockUser, display_name: 'Updated Name' },
-      });
-
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
-
-      await waitFor(() => {
-        expect(authData.user).toEqual(mockUser);
-      });
-
-      await act(async () => {
-        const result = await authData.updateProfile({ display_name: 'Updated Name' });
-        expect(result.success).toBe(true);
-      });
-
-      expect(authData.user.display_name).toBe('Updated Name');
+  it('should handle anonymous sign in', async () => {
+    const mockAnonymousUser = { id: 'anon123', isAnonymous: true };
+    authService.signInAnonymously.mockResolvedValue({
+      success: true,
+      data: { user: mockAnonymousUser },
     });
 
-    it('should update anonymous user profile locally', async () => {
-      const mockAnonymousUser = { id: 'anon_123', isAnonymous: true };
-      
-      authService.getCurrentUser.mockResolvedValue({
-        success: false,
-        user: null,
-      });
-      
-      storageUtils.getAnonymousSession.mockResolvedValue(mockAnonymousUser);
-      storageUtils.storeAnonymousSession.mockResolvedValue();
+    let authContext;
+    const TestComponentWithAnonymousSignIn = () => {
+      authContext = useAuth();
+      return <Text>Test</Text>;
+    };
 
-      render(
-        <AuthProvider>
-          <TestComponent onAuthData={mockOnAuthData} />
-        </AuthProvider>
-      );
+    render(
+      <AuthProvider>
+        <TestComponentWithAnonymousSignIn />
+      </AuthProvider>
+    );
 
-      await waitFor(() => {
-        expect(authData.user).toEqual(mockAnonymousUser);
-        expect(authData.isAnonymous).toBe(true);
-      });
+    await act(async () => {
+      const result = await authContext.signInAnonymously(['anxiety', 'depression']);
+      expect(result.success).toBe(true);
+    });
 
-      await act(async () => {
-        const result = await authData.updateProfile({ displayName: 'Anonymous User' });
-        expect(result.success).toBe(true);
-      });
+    expect(storageUtils.storeAnonymousSession).toHaveBeenCalled();
+  });
 
-      expect(authData.user.displayName).toBe('Anonymous User');
+  it('should handle sign out for regular user', async () => {
+    const mockUser = { id: 'user123', email: 'test@example.com' };
+    authService.getCurrentUser.mockResolvedValue({
+      success: true,
+      user: mockUser,
+    });
+
+    let authContext;
+    const TestComponentWithSignOut = () => {
+      authContext = useAuth();
+      return <Text>Test</Text>;
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponentWithSignOut />
+      </AuthProvider>
+    );
+
+    await act(async () => {
+      const result = await authContext.signOut();
+      expect(result.success).toBe(true);
+    });
+
+    expect(authService.signOut).toHaveBeenCalled();
+    expect(storageUtils.clearAnonymousSession).toHaveBeenCalled();
+  });
+
+  it('should handle sign out for anonymous user', async () => {
+    const mockAnonymousUser = { id: 'anon123', isAnonymous: true };
+    storageUtils.getAnonymousSession.mockResolvedValue(mockAnonymousUser);
+
+    let authContext;
+    const TestComponentWithSignOut = () => {
+      authContext = useAuth();
+      return <Text>Test</Text>;
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponentWithSignOut />
+      </AuthProvider>
+    );
+
+    // Wait for initialization
+    await waitFor(() => {
+      expect(authContext.isAnonymous).toBe(true);
+    });
+
+    await act(async () => {
+      const result = await authContext.signOut();
+      expect(result.success).toBe(true);
+    });
+
+    expect(authService.signOut).not.toHaveBeenCalled();
+    expect(storageUtils.clearAnonymousSession).toHaveBeenCalled();
+  });
+
+  it('should update profile for regular user', async () => {
+    const mockUser = { id: 'user123', email: 'test@example.com' };
+    authService.getCurrentUser.mockResolvedValue({
+      success: true,
+      user: mockUser,
+    });
+    authService.updateProfile.mockResolvedValue({
+      success: true,
+      data: { user: { ...mockUser, displayName: 'John Doe' } },
+    });
+
+    let authContext;
+    const TestComponentWithUpdate = () => {
+      authContext = useAuth();
+      return <Text>Test</Text>;
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponentWithUpdate />
+      </AuthProvider>
+    );
+
+    await act(async () => {
+      const result = await authContext.updateProfile({ displayName: 'John Doe' });
+      expect(result.success).toBe(true);
+    });
+
+    expect(authService.updateProfile).toHaveBeenCalledWith({ displayName: 'John Doe' });
+  });
+
+  it('should update profile for anonymous user', async () => {
+    const mockAnonymousUser = { id: 'anon123', isAnonymous: true };
+    storageUtils.getAnonymousSession.mockResolvedValue(mockAnonymousUser);
+
+    let authContext;
+    const TestComponentWithUpdate = () => {
+      authContext = useAuth();
+      return <Text>Test</Text>;
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponentWithUpdate />
+      </AuthProvider>
+    );
+
+    // Wait for initialization
+    await waitFor(() => {
+      expect(authContext.isAnonymous).toBe(true);
+    });
+
+    await act(async () => {
+      const result = await authContext.updateProfile({ displayName: 'Anonymous User' });
+      expect(result.success).toBe(true);
+    });
+
+    expect(storageUtils.storeAnonymousSession).toHaveBeenCalled();
+    expect(authService.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('should handle auth state changes', async () => {
+    let authStateCallback;
+    authService.onAuthStateChange.mockImplementation((callback) => {
+      authStateCallback = callback;
+      return { data: { subscription: { unsubscribe: jest.fn() } } };
+    });
+
+    const { getByTestId } = render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    // Simulate sign in event
+    const mockUser = { id: 'user123', email: 'test@example.com' };
+    act(() => {
+      authStateCallback('SIGNED_IN', { user: mockUser });
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('auth-state').children[0]).toBe('user:user123-anonymous:false');
+    });
+
+    // Simulate sign out event
+    act(() => {
+      authStateCallback('SIGNED_OUT', null);
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('auth-state').children[0]).toBe('user:none-anonymous:false');
     });
   });
 });

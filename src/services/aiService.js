@@ -118,6 +118,133 @@ class AIService {
       ];
     }
   }
+
+  // Generate wellness plan insights based on user data
+  async generateWellnessInsights(context) {
+    try {
+      switch (this.provider) {
+        case 'huggingface':
+        case 'google':
+        case 'openai':
+          // For now, use rule-based insights until AI integration is fully configured
+          return this.generateRuleBasedWellnessInsights(context);
+        default:
+          return this.generateRuleBasedWellnessInsights(context);
+      }
+    } catch (error) {
+      console.error('AI Wellness Insights failed:', error);
+      return this.generateRuleBasedWellnessInsights(context);
+    }
+  }
+
+  // Generate rule-based wellness insights
+  generateRuleBasedWellnessInsights(context) {
+    const { goals, moodTrend, averageMood, commonEmotions, frequentTriggers } = context;
+    
+    const insights = {
+      recommendations: [],
+      riskFactors: [],
+      strengths: [],
+      focusAreas: [],
+      adaptationSuggestions: []
+    };
+
+    // Analyze goals
+    const goalText = goals.join(' ').toLowerCase();
+    
+    // Generate recommendations based on goals
+    if (goalText.includes('anxiety')) {
+      insights.recommendations.push(
+        'Practice daily breathing exercises to manage anxiety symptoms',
+        'Use the Social Ease Toolkit to build confidence in social situations',
+        'Keep an anxiety journal to identify patterns and triggers'
+      );
+      insights.focusAreas.push('Anxiety management', 'Stress reduction');
+    }
+
+    if (goalText.includes('mood') || goalText.includes('depression')) {
+      insights.recommendations.push(
+        'Engage in daily gratitude practice to improve mood',
+        'Include physical activity in your routine for natural mood boosting',
+        'Connect with peer support when feeling low'
+      );
+      insights.focusAreas.push('Mood regulation', 'Emotional wellness');
+    }
+
+    if (goalText.includes('social')) {
+      insights.recommendations.push(
+        'Practice conversation starters daily',
+        'Use role-play scenarios to build social confidence',
+        'Set small social interaction goals each week'
+      );
+      insights.focusAreas.push('Social skills', 'Confidence building');
+    }
+
+    // Analyze mood trends
+    if (moodTrend === 'declining') {
+      insights.riskFactors.push('Recent declining mood trend');
+      insights.recommendations.push('Consider increasing support activities and monitoring mood more closely');
+      insights.adaptationSuggestions.push('Reduce task difficulty temporarily', 'Add more mood-boosting activities');
+    } else if (moodTrend === 'improving') {
+      insights.strengths.push('Positive mood trend showing improvement');
+      insights.adaptationSuggestions.push('Gradually increase challenge level', 'Build on current momentum');
+    }
+
+    // Analyze average mood
+    if (averageMood < 3) {
+      insights.riskFactors.push('Low average mood levels');
+      insights.recommendations.push('Focus on mood-lifting activities and consider professional support');
+    } else if (averageMood > 4) {
+      insights.strengths.push('Generally positive mood levels');
+    }
+
+    // Analyze common emotions
+    if (commonEmotions?.length > 0) {
+      const negativeEmotions = ['anxious', 'sad', 'worried', 'stressed', 'overwhelmed'];
+      const hasNegativeEmotions = commonEmotions.some(emotion => 
+        negativeEmotions.some(neg => emotion.emotion?.toLowerCase().includes(neg))
+      );
+      
+      if (hasNegativeEmotions) {
+        insights.focusAreas.push('Emotional regulation');
+        insights.recommendations.push('Practice mindfulness to better manage difficult emotions');
+      }
+    }
+
+    // Analyze frequent triggers
+    if (frequentTriggers?.length > 0) {
+      insights.focusAreas.push('Trigger management');
+      insights.recommendations.push('Develop coping strategies for identified triggers');
+      insights.adaptationSuggestions.push('Include trigger-specific exercises in your plan');
+    }
+
+    // Default strengths and recommendations
+    if (insights.strengths.length === 0) {
+      insights.strengths.push('Commitment to personal growth', 'Proactive approach to mental health');
+    }
+
+    if (insights.recommendations.length === 0) {
+      insights.recommendations.push(
+        'Start with small, consistent daily practices',
+        'Focus on building sustainable habits',
+        'Celebrate small victories along the way'
+      );
+    }
+
+    if (insights.focusAreas.length === 0) {
+      insights.focusAreas.push('Habit formation', 'Self-awareness');
+    }
+
+    if (insights.adaptationSuggestions.length === 0) {
+      insights.adaptationSuggestions.push(
+        'Adjust task difficulty based on daily mood',
+        'Add variety to prevent routine boredom',
+        'Increase social activities if feeling isolated'
+      );
+    }
+
+    return insights;
+  }
 }
 
 export default new AIService();

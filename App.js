@@ -14,6 +14,13 @@ import JournalScreen from './src/screens/JournalScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import MoodHistoryScreen from './src/screens/MoodHistoryScreen';
 import JournalHistoryScreen from './src/screens/JournalHistoryScreen';
+import RolePlayScreen from './src/screens/RolePlayScreen';
+import ScenarioPlannerScreen from './src/screens/ScenarioPlannerScreen';
+import MoodTrackingScreen from './src/screens/MoodTrackingScreen';
+import UserMatchingScreen from './src/screens/UserMatchingScreen';
+// import WellnessPlanCreationScreen from './src/screens/WellnessPlanCreationScreen';
+// import WellnessPlanScreen from './src/screens/WellnessPlanScreen';
+// import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
 
 // Import auth screens
 import {
@@ -156,6 +163,41 @@ function MainAppStack() {
         component={JournalHistoryScreen}
         options={{ headerShown: false }}
       />
+      <Stack.Screen 
+        name="RolePlay" 
+        component={RolePlayScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="ScenarioPlanner" 
+        component={ScenarioPlannerScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="MoodTracking" 
+        component={MoodTrackingScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="UserMatching" 
+        component={UserMatchingScreen}
+        options={{ headerShown: false }}
+      />
+      {/* <Stack.Screen 
+        name="WellnessPlanCreation" 
+        component={WellnessPlanCreationScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="WellnessPlan" 
+        component={WellnessPlanScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="NotificationSettings" 
+        component={NotificationSettingsScreen}
+        options={{ headerShown: false }}
+      /> */}
     </Stack.Navigator>
   );
 }

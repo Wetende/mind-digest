@@ -11,7 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BreathingExercise } from '../components';
 
-export default function ToolkitScreen() {
+export default function ToolkitScreen({ navigation }) {
   const [selectedTool, setSelectedTool] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [breathingVisible, setBreathingVisible] = useState(false);
@@ -51,17 +51,30 @@ export default function ToolkitScreen() {
     },
     {
       id: 3,
-      title: 'Social Scenarios',
-      subtitle: 'Practice common situations',
+      title: 'Role-Play Practice',
+      subtitle: 'Interactive conversation scenarios',
       icon: 'people',
       color: ['#fbbf24', '#f59e0b'],
+      isRolePlay: true,
       content: [
-        "Scenario: Meeting new people at a party",
-        "Scenario: Making small talk with coworkers",
-        "Scenario: Asking for help or directions",
-        "Scenario: Handling disagreements calmly",
-        "Scenario: Joining an ongoing conversation",
-        "Scenario: Declining invitations politely",
+        "Practice real conversations with guided feedback",
+        "Build confidence through interactive scenarios",
+        "Learn from mistakes in a safe environment",
+        "Track your social skills progress",
+      ],
+    },
+    {
+      id: 6,
+      title: 'Scenario Planner',
+      subtitle: 'Step-by-step social guidance',
+      icon: 'clipboard',
+      color: ['#8b5cf6', '#7c3aed'],
+      isScenarioPlanner: true,
+      content: [
+        "Get detailed plans for challenging situations",
+        "Prepare for job interviews, dates, and more",
+        "Track your preparation progress",
+        "Reduce anxiety with structured guidance",
       ],
     },
     {
@@ -101,6 +114,10 @@ export default function ToolkitScreen() {
   const openTool = (tool) => {
     if (tool.isBreathing) {
       setBreathingVisible(true);
+    } else if (tool.isRolePlay) {
+      navigation.navigate('RolePlay');
+    } else if (tool.isScenarioPlanner) {
+      navigation.navigate('ScenarioPlanner');
     } else {
       setSelectedTool(tool);
       setModalVisible(true);

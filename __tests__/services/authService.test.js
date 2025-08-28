@@ -20,39 +20,39 @@ jest.mock('../../src/config/supabase', () => ({
 describe('AuthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Suppress console logs during tests
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    console.log.mockRestore();
+    console.error.mockRestore();
   });
 
   describe('signUp', () => {
     it('should successfully sign up a user', async () => {
-      const mockUser = { id: '123', email: 'test@example.com' };
-      const mockData = { user: mockUser };
-      
+      const mockUser = { id: 'user123', email: 'test@example.com' };
       supabase.auth.signUp.mockResolvedValue({
-        data: mockData,
+        data: { user: mockUser },
         error: null,
       });
 
-      const result = await authService.signUp('test@example.com', 'password123', {
-        display_name: 'Test User',
-      });
+      const result = await authService.signUp('test@example.com', 'password123');
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockData);
+      expect(result.data.user).toEqual(mockUser);
       expect(supabase.auth.signUp).toHaveBeenCalledWith({
         email: 'test@example.com',
         password: 'password123',
-        options: {
-          data: { display_name: 'Test User' },
-        },
+        options: { data: {} },
       });
     });
 
-    it('should handle sign up errors', async () => {
-      const mockError = { message: 'User already registered' };
-      
+    it('should handle sign up errors with user-friendly messages', async () => {
       supabase.auth.signUp.mockResolvedValue({
         data: null,
-        error: mockError,
+        error: { message: 'User already registered' },
       });
 
       const result = await authService.signUp('test@example.com', 'password123');
@@ -61,12 +61,10 @@ describe('AuthService', () => {
       expect(result.error).toBe('An account with this email already exists. Please sign in instead.');
     });
 
-    it('should handle weak password error', async () => {
-      const mockError = { message: 'Password should be at least 6 characters' };
-      
+    it('should handle password validation errors', async () => {
       supabase.auth.signUp.mockResolvedValue({
         data: null,
-        error: mockError,
+        error: { message: 'Password should be at least 6 characters' },
       });
 
       const result = await authService.signUp('test@example.com', '123');
@@ -74,22 +72,32 @@ describe('AuthService', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Password must be at least 6 characters long.');
     });
+
+    it('should handle invalid email errors', async () => {
+      supabase.auth.signUp.mockResolvedValue({
+        data: null,
+        error: { message: 'Invalid email' },
+      });
+
+      const result = await authService.signUp('invalid-email', 'password123');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Please enter a valid email address.');
+    });
   });
 
   describe('signIn', () => {
     it('should successfully sign in a user', async () => {
-      const mockUser = { id: '123', email: 'test@example.com' };
-      const mockData = { user: mockUser };
-      
+      const mockUser = { id: 'user123', email: 'test@example.com' };
       supabase.auth.signInWithPassword.mockResolvedValue({
-        data: mockData,
+        data: { user: mockUser },
         error: null,
       });
 
       const result = await authService.signIn('test@example.com', 'password123');
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockData);
+      expect(result.data.user).toEqual(mockUser);
       expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
         email: 'test@example.com',
         password: 'password123',
@@ -97,17 +105,27 @@ describe('AuthService', () => {
     });
 
     it('should handle invalid credentials error', async () => {
-      const mockError = { message: 'Invalid login credentials' };
-      
       supabase.auth.signInWithPassword.mockResolvedValue({
         data: null,
-        error: mockError,
+        error: { message: 'Invalid login credentials' },
       });
 
       const result = await authService.signIn('test@example.com', 'wrongpassword');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Invalid email or password. Please check your credentials and try again.');
+    });
+
+    it('should handle email not confirmed error', async () => {
+      supabase.auth.signInWithPassword.mockResolvedValue({
+        data: null,
+        error: { message: 'Email not confirmed' },
+      });
+
+      const result = await authService.signIn('test@example.com', 'password123');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Please check your email and click the confirmation link before signing in.');
     });
 
     it('should handle missing user data', async () => {
@@ -123,11 +141,20 @@ describe('AuthService', () => {
     });
   });
 
+  describe('signInAnonymously', () => {
+    it('should create anonymous session', async () => {
+      const result = await authService.signInAnonymously();
+
+      expect(result.success).toBe(true);
+      expect(result.data.user.isAnonymous).toBe(true);
+      expect(result.data.user.email).toBe(null);
+      expect(result.data.user.id).toMatch(/^anon_\d+_[a-z0-9]+$/);
+    });
+  });
+
   describe('signOut', () => {
     it('should successfully sign out', async () => {
-      supabase.auth.signOut.mockResolvedValue({
-        error: null,
-      });
+      supabase.auth.signOut.mockResolvedValue({ error: null });
 
       const result = await authService.signOut();
 
@@ -136,10 +163,8 @@ describe('AuthService', () => {
     });
 
     it('should handle sign out errors', async () => {
-      const mockError = { message: 'Sign out failed' };
-      
       supabase.auth.signOut.mockResolvedValue({
-        error: mockError,
+        error: { message: 'Sign out failed' },
       });
 
       const result = await authService.signOut();
@@ -150,15 +175,14 @@ describe('AuthService', () => {
   });
 
   describe('getCurrentUser', () => {
-    it('should return current user when authenticated', async () => {
-      const mockUser = { id: '123', email: 'test@example.com' };
+    it('should return current user with valid session', async () => {
+      const mockUser = { id: 'user123', email: 'test@example.com' };
       const mockSession = { access_token: 'token123' };
-      
+
       supabase.auth.getUser.mockResolvedValue({
         data: { user: mockUser },
         error: null,
       });
-      
       supabase.auth.getSession.mockResolvedValue({
         data: { session: mockSession },
         error: null,
@@ -171,14 +195,13 @@ describe('AuthService', () => {
       expect(result.session).toEqual(mockSession);
     });
 
-    it('should return null when no session exists', async () => {
-      const mockUser = { id: '123', email: 'test@example.com' };
-      
+    it('should return null user when no session', async () => {
+      const mockUser = { id: 'user123', email: 'test@example.com' };
+
       supabase.auth.getUser.mockResolvedValue({
         data: { user: mockUser },
         error: null,
       });
-      
       supabase.auth.getSession.mockResolvedValue({
         data: { session: null },
         error: null,
@@ -187,51 +210,85 @@ describe('AuthService', () => {
       const result = await authService.getCurrentUser();
 
       expect(result.success).toBe(true);
-      expect(result.user).toBeNull();
+      expect(result.user).toBe(null);
     });
-  });
 
-  describe('signInAnonymously', () => {
-    it('should create anonymous session', async () => {
-      const result = await authService.signInAnonymously();
+    it('should handle errors', async () => {
+      supabase.auth.getUser.mockResolvedValue({
+        data: null,
+        error: { message: 'User fetch failed' },
+      });
 
-      expect(result.success).toBe(true);
-      expect(result.data.user.isAnonymous).toBe(true);
-      expect(result.data.user.id).toMatch(/^anon_/);
+      const result = await authService.getCurrentUser();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('User fetch failed');
     });
   });
 
   describe('updateProfile', () => {
     it('should successfully update user profile', async () => {
-      const mockUpdatedUser = { id: '123', email: 'test@example.com' };
-      const mockData = { user: mockUpdatedUser };
-      
+      const updates = { displayName: 'John Doe' };
+      const mockData = { user: { id: 'user123', user_metadata: updates } };
+
       supabase.auth.updateUser.mockResolvedValue({
         data: mockData,
         error: null,
       });
 
-      const updates = { display_name: 'Updated Name' };
       const result = await authService.updateProfile(updates);
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockData);
-      expect(supabase.auth.updateUser).toHaveBeenCalledWith({
-        data: updates,
+      expect(supabase.auth.updateUser).toHaveBeenCalledWith({ data: updates });
+    });
+
+    it('should handle update errors', async () => {
+      supabase.auth.updateUser.mockResolvedValue({
+        data: null,
+        error: { message: 'Update failed' },
       });
+
+      const result = await authService.updateProfile({ displayName: 'John' });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Update failed');
     });
   });
 
   describe('resetPassword', () => {
-    it('should successfully send reset password email', async () => {
-      supabase.auth.resetPasswordForEmail.mockResolvedValue({
-        error: null,
-      });
+    it('should successfully send password reset email', async () => {
+      supabase.auth.resetPasswordForEmail.mockResolvedValue({ error: null });
 
       const result = await authService.resetPassword('test@example.com');
 
       expect(result.success).toBe(true);
       expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith('test@example.com');
+    });
+
+    it('should handle reset password errors', async () => {
+      supabase.auth.resetPasswordForEmail.mockResolvedValue({
+        error: { message: 'Reset failed' },
+      });
+
+      const result = await authService.resetPassword('test@example.com');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Reset failed');
+    });
+  });
+
+  describe('onAuthStateChange', () => {
+    it('should set up auth state change listener', () => {
+      const mockCallback = jest.fn();
+      const mockUnsubscribe = jest.fn();
+      
+      supabase.auth.onAuthStateChange.mockReturnValue(mockUnsubscribe);
+
+      const result = authService.onAuthStateChange(mockCallback);
+
+      expect(supabase.auth.onAuthStateChange).toHaveBeenCalledWith(mockCallback);
+      expect(result).toBe(mockUnsubscribe);
     });
   });
 });

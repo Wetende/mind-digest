@@ -12,6 +12,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { moodService } from '../services';
+// import wellnessPlanService from '../services/wellnessPlanService';
+// import { WellnessTaskCard } from '../components';
 
 export default function HomeScreen({ navigation }) {
   const { user, isAnonymous } = useAuth();
@@ -20,6 +22,9 @@ export default function HomeScreen({ navigation }) {
   const [moodStreak, setMoodStreak] = useState(0);
   const [loadingMood, setLoadingMood] = useState(true);
   const [dailyQuote, setDailyQuote] = useState("Today is a new opportunity to take care of yourself.");
+  // const [wellnessTasks, setWellnessTasks] = useState([]);
+  // const [loadingTasks, setLoadingTasks] = useState(true);
+  // const [activePlan, setActivePlan] = useState(null);
   const [dailyHabits, setDailyHabits] = useState([
     { id: 1, name: 'Morning mood check', completed: false, points: 10 },
     { id: 2, name: 'Breathing exercise', completed: false, points: 15 },
@@ -33,8 +38,10 @@ export default function HomeScreen({ navigation }) {
     if (user && !isAnonymous) {
       loadTodaysMood();
       loadMoodStreak();
+      // loadWellnessTasks();
     } else {
       setLoadingMood(false);
+      // setLoadingTasks(false);
     }
   }, [user, isAnonymous]);
 
@@ -101,6 +108,26 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  // const loadWellnessTasks = async () => {
+  //   try {
+  //     // First try to get active plan
+  //     const planResult = await wellnessPlanService.getActiveWellnessPlan(user.id);
+  //     if (planResult.success && planResult.data) {
+  //       setActivePlan(planResult.data);
+  //     }
+
+  //     // Get today's tasks
+  //     const tasksResult = await wellnessPlanService.getTodaysTasks(user.id);
+  //     if (tasksResult.success) {
+  //       setWellnessTasks(tasksResult.data || []);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error loading wellness tasks:', error);
+  //   } finally {
+  //     setLoadingTasks(false);
+  //   }
+  // };
+
   const handleMoodSelect = async (mood) => {
     setCurrentMood(mood);
     
@@ -129,6 +156,9 @@ export default function HomeScreen({ navigation }) {
     } catch (error) {
       Alert.alert('Error', 'Something went wrong saving your mood.');
     }
+    
+    // Award points for mood logging
+    setTotalPoints(prev => prev + 10);
     
     // Complete the mood check habit
     completeHabit(1);
@@ -511,5 +541,49 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
+  },
+  habitsContainer: {
+    gap: 12,
+  },
+  habitCard: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  habitInfo: {
+    flex: 1,
+  },
+  habitNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  habitNameText: {
+    fontSize: 16,
+    color: '#1f2937',
+    marginLeft: 8,
+  },
+  completedHabit: {
+    textDecorationLine: 'line-through',
+    color: '#6b7280',
+  },
+  habitPoints: {
+    fontSize: 14,
+    color: '#6366f1',
+    fontWeight: '500',
+  },
+  completedBadge: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
 });

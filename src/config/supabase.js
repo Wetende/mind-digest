@@ -23,4 +23,6 @@ export const TABLES = {
   PEER_MESSAGES: 'peer_messages',
   HABITS: 'habits',
   SOCIAL_SHARES: 'social_shares',
+  WELLNESS_PLANS: 'wellness_plans',
+  WELLNESS_TASKS: 'wellness_tasks',
 };

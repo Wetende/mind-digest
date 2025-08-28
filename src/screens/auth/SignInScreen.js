@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, LoadingSpinner } from '../../components';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services';
@@ -162,13 +163,11 @@ export default function SignInScreen({ navigation }) {
                 style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
               >
-                <Text style={styles.eyeButtonText}>
-                  <Ionicons 
-                    name={showPassword ? 'eye-off' : 'eye'} 
-                    size={20} 
-                    color="#6b7280" 
-                  />
-                </Text>
+                <Ionicons 
+                  name={showPassword ? 'eye-off' : 'eye'} 
+                  size={20} 
+                  color="#6b7280" 
+                />
               </TouchableOpacity>
             </View>
             {errors.password && (
