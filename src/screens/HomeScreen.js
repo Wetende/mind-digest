@@ -12,8 +12,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { moodService } from '../services';
+import habitTrackingService from '../services/habitTrackingService';
 // import wellnessPlanService from '../services/wellnessPlanService';
 // import { WellnessTaskCard } from '../components';
+import { PointsAnimation } from '../components';
 
 export default function HomeScreen({ navigation }) {
   const { user, isAnonymous } = useAuth();
@@ -33,6 +35,11 @@ export default function HomeScreen({ navigation }) {
   ]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [streak, setStreak] = useState(3);
+  const [pointsAnimation, setPointsAnimation] = useState({
+    visible: false,
+    points: 0,
+    type: 'points',
+  });
 
   useEffect(() => {
     if (user && !isAnonymous) {
@@ -79,6 +86,22 @@ export default function HomeScreen({ navigation }) {
       action: () => {
         navigation.navigate('Journal');
         completeHabit(3);
+      },
+    },
+    {
+      title: 'Habit Tracking',
+      subtitle: 'View progress & challenges',
+      color: ['#a855f7', '#9333ea'],
+      action: () => {
+        navigation.navigate('HabitTracking');
+      },
+    },
+    {
+      title: 'Accountability Partners',
+      subtitle: 'Connect & share progress',
+      color: ['#06b6d4', '#0891b2'],
+      action: () => {
+        navigation.navigate('SocialAccountability');
       },
     },
   ];
@@ -164,14 +187,49 @@ export default function HomeScreen({ navigation }) {
     completeHabit(1);
   };
 
-  const completeHabit = (habitId) => {
-    setDailyHabits(prev => 
-      prev.map(habit => {
-        if (habit.id === habitId && !habit.completed) {
-          setTotalPoints(prevPoints => prevPoints + habit.points);
-          return { ...habit, completed: true };
+  const completeHabit = async (habitId) => {
+    const habit = dailyHabits.find(h => h.id === habitId);
+    if (!habit || habit.completed) return;
+
+    // Map habit to activity type for habit tracking service
+    const activityTypeMap = {
+      1: 'MOOD_LOG', // Morning mood check
+      2: 'BREATHING_EXERCISE', // Breathing exercise
+      3: 'JOURNAL_ENTRY', // Journal entry
+      4: 'SOCIAL_INTERACTION', // Connect with peers
+    };
+
+    const activityType = activityTypeMap[habitId];
+    
+    if (user && !isAnonymous && activityType) {
+      try {
+        // Award points through habit tracking service
+        const result = await habitTrackingService.awardPoints(
+          user.id,
+          activityType,
+          { habitId, habitName: habit.name }
+        );
+
+        if (result.success) {
+          // Show points animation
+          setPointsAnimation({
+            visible: true,
+            points: result.data.pointsEarned,
+            type: 'points',
+          });
         }
-        return habit;
+      } catch (error) {
+        console.error('Error awarding habit points:', error);
+      }
+    }
+
+    setDailyHabits(prev => 
+      prev.map(h => {
+        if (h.id === habitId && !h.completed) {
+          setTotalPoints(prevPoints => prevPoints + h.points);
+          return { ...h, completed: true };
+        }
+        return h;
       })
     );
   };
@@ -331,6 +389,13 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
       </View>
+
+      <PointsAnimation
+        points={pointsAnimation.points}
+        visible={pointsAnimation.visible}
+        type={pointsAnimation.type}
+        onComplete={() => setPointsAnimation({ ...pointsAnimation, visible: false })}
+      />
     </ScrollView>
   );
 }

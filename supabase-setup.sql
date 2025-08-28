@@ -538,3 +538,200 @@ INSERT INTO scenario_templates (title, description, category, difficulty_level, 
   ]'::jsonb
 )
 ON CONFLICT DO NOTHING;
+
+-- Habit tracking tables for gamified wellness system
+
+-- User habit statistics table
+CREATE TABLE IF NOT EXISTS user_habit_stats (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  total_points INTEGER DEFAULT 0,
+  current_streak INTEGER DEFAULT 0,
+  longest_streak INTEGER DEFAULT 0,
+  total_activities INTEGER DEFAULT 0,
+  level INTEGER DEFAULT 1,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- Habit activities table for tracking all user activities
+CREATE TABLE IF NOT EXISTS habit_activities (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  activity_type TEXT NOT NULL CHECK (activity_type IN (
+    'MOOD_LOG', 'JOURNAL_ENTRY', 'BREATHING_EXERCISE', 'MEDITATION',
+    'SOCIAL_INTERACTION', 'WELLNESS_TASK', 'DAILY_CHECKIN', 'MILESTONE_ACHIEVEMENT'
+  )),
+  points_earned INTEGER DEFAULT 0,
+  metadata JSONB DEFAULT '{}',
+  completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- User badges table for achievement tracking
+CREATE TABLE IF NOT EXISTS user_badges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  badge_key TEXT NOT NULL,
+  badge_data JSONB NOT NULL,
+  earned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, badge_key)
+);
+
+-- User challenges table for habit formation challenges
+CREATE TABLE IF NOT EXISTS user_challenges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  challenge_id TEXT NOT NULL,
+  challenge_data JSONB NOT NULL,
+  current_progress INTEGER DEFAULT 0,
+  target_progress INTEGER NOT NULL,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'failed', 'abandoned')),
+  started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  ends_at TIMESTAMP WITH TIME ZONE,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS for habit tracking tables
+ALTER TABLE user_habit_stats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE habit_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_badges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_challenges ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for user_habit_stats
+CREATE POLICY "Users can view own habit stats" ON user_habit_stats FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own habit stats" ON user_habit_stats FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own habit stats" ON user_habit_stats FOR UPDATE USING (auth.uid() = user_id);
+
+-- Create policies for habit_activities
+CREATE POLICY "Users can view own habit activities" ON habit_activities FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own habit activities" ON habit_activities FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Create policies for user_badges
+CREATE POLICY "Users can view own badges" ON user_badges FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own badges" ON user_badges FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Create policies for user_challenges
+CREATE POLICY "Users can view own challenges" ON user_challenges FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own challenges" ON user_challenges FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own challenges" ON user_challenges FOR UPDATE USING (auth.uid() = user_id);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_habit_activities_user_type ON habit_activities(user_id, activity_type);
+CREATE INDEX IF NOT EXISTS idx_habit_activities_completed_at ON habit_activities(completed_at);
+CREATE INDEX IF NOT EXISTS idx_user_challenges_status ON user_challenges(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);--
+ Social accountability tables for habit tracking
+
+-- Progress sharing table
+CREATE TABLE IF NOT EXISTS progress_shares (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  share_type TEXT NOT NULL CHECK (share_type IN (
+    'general_progress', 'milestone_reached', 'badge_earned', 'level_up', 'streak_achievement'
+  )),
+  content JSONB NOT NULL,
+  visibility TEXT DEFAULT 'all' CHECK (visibility IN ('all', 'accountability_partners', 'specific_users')),
+  target_users UUID[] DEFAULT '{}',
+  reactions JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Accountability partner requests table
+CREATE TABLE IF NOT EXISTS accountability_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  from_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  to_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  message TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  accepted_at TIMESTAMP WITH TIME ZONE,
+  declined_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(from_user_id, to_user_id)
+);
+
+-- Accountability partnerships table
+CREATE TABLE IF NOT EXISTS accountability_partnerships (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user1_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user2_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'ended')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  ended_at TIMESTAMP WITH TIME ZONE,
+  end_reason TEXT,
+  UNIQUE(user1_id, user2_id)
+);
+
+-- Partner encouragements table
+CREATE TABLE IF NOT EXISTS partner_encouragements (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  from_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  to_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  encouragement_type TEXT DEFAULT 'general' CHECK (encouragement_type IN (
+    'general', 'streak_support', 'milestone_celebration', 'challenge_motivation'
+  )),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS for social accountability tables
+ALTER TABLE progress_shares ENABLE ROW LEVEL SECURITY;
+ALTER TABLE accountability_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE accountability_partnerships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE partner_encouragements ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for progress_shares
+CREATE POLICY "Users can view relevant progress shares" ON progress_shares 
+FOR SELECT USING (
+  visibility = 'all' OR 
+  user_id = auth.uid() OR
+  (visibility = 'accountability_partners' AND EXISTS (
+    SELECT 1 FROM accountability_partnerships 
+    WHERE (user1_id = auth.uid() AND user2_id = progress_shares.user_id)
+       OR (user2_id = auth.uid() AND user1_id = progress_shares.user_id)
+    AND status = 'active'
+  )) OR
+  (visibility = 'specific_users' AND auth.uid() = ANY(target_users))
+);
+
+CREATE POLICY "Users can insert own progress shares" ON progress_shares 
+FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own progress shares" ON progress_shares 
+FOR UPDATE USING (auth.uid() = user_id);
+
+-- Create policies for accountability_requests
+CREATE POLICY "Users can view own requests" ON accountability_requests 
+FOR SELECT USING (auth.uid() = from_user_id OR auth.uid() = to_user_id);
+
+CREATE POLICY "Users can insert requests" ON accountability_requests 
+FOR INSERT WITH CHECK (auth.uid() = from_user_id);
+
+CREATE POLICY "Users can update requests they received" ON accountability_requests 
+FOR UPDATE USING (auth.uid() = to_user_id);
+
+-- Create policies for accountability_partnerships
+CREATE POLICY "Users can view own partnerships" ON accountability_partnerships 
+FOR SELECT USING (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+CREATE POLICY "System can insert partnerships" ON accountability_partnerships 
+FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can update own partnerships" ON accountability_partnerships 
+FOR UPDATE USING (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+-- Create policies for partner_encouragements
+CREATE POLICY "Users can view encouragements they sent or received" ON partner_encouragements 
+FOR SELECT USING (auth.uid() = from_user_id OR auth.uid() = to_user_id);
+
+CREATE POLICY "Users can send encouragements" ON partner_encouragements 
+FOR INSERT WITH CHECK (auth.uid() = from_user_id);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_progress_shares_user_visibility ON progress_shares(user_id, visibility);
+CREATE INDEX IF NOT EXISTS idx_progress_shares_created_at ON progress_shares(created_at);
+CREATE INDEX IF NOT EXISTS idx_accountability_requests_to_user ON accountability_requests(to_user_id, status);
+CREATE INDEX IF NOT EXISTS idx_accountability_partnerships_users ON accountability_partnerships(user1_id, user2_id, status);
+CREATE INDEX IF NOT EXISTS idx_partner_encouragements_to_user ON partner_encouragements(to_user_id, created_at);

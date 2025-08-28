@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase';
 import { TABLES } from '../config/supabase';
+import habitTrackingService from './habitTrackingService';
 
 class MoodService {
   // Create a new mood entry
@@ -20,6 +21,20 @@ class MoodService {
         .select();
 
       if (error) throw error;
+
+      // Award points for mood logging
+      if (data && data[0]) {
+        await habitTrackingService.awardPoints(
+          moodData.userId,
+          'MOOD_LOG',
+          {
+            mood: moodData.mood,
+            hasEmotions: moodData.emotions && moodData.emotions.length > 0,
+            hasNotes: moodData.notes && moodData.notes.length > 0,
+          }
+        );
+      }
+
       return { success: true, data: data[0] };
     } catch (error) {
       return { success: false, error: error.message };

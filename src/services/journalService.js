@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase';
 import { TABLES } from '../config/supabase';
 import aiService from './aiService';
+import habitTrackingService from './habitTrackingService';
 
 class JournalService {
   // Create a new journal entry
@@ -23,6 +24,21 @@ class JournalService {
         .select();
 
       if (error) throw error;
+
+      // Award points for journal entry
+      if (data && data[0]) {
+        await habitTrackingService.awardPoints(
+          entryData.userId,
+          'JOURNAL_ENTRY',
+          {
+            wordCount: entryData.content.length,
+            hasMood: !!entryData.mood,
+            hasEmotions: entryData.emotions && entryData.emotions.length > 0,
+            hasAIInsights: !!aiAnalysis,
+          }
+        );
+      }
+
       return { success: true, data: data[0] };
     } catch (error) {
       return { success: false, error: error.message };

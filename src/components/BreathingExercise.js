@@ -6,47 +6,33 @@ import {
   TouchableOpacity,
   Animated,
   Modal,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Audio } from 'expo-av';
+import { useAuth } from '../contexts/AuthContext';
+import { meditationService } from '../services';
 
 export default function BreathingExercise({ visible, onClose }) {
+  const { user, isAnonymous } = useAuth();
   const [isActive, setIsActive] = useState(false);
   const [phase, setPhase] = useState('inhale'); // 'inhale', 'hold', 'exhale'
   const [count, setCount] = useState(4);
   const [cycle, setCycle] = useState(0);
   const [exerciseType, setExerciseType] = useState('box'); // 'box', '478', 'simple'
+  const [sessionId, setSessionId] = useState(null);
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [sound, setSound] = useState(null);
   
   const scaleAnim = useRef(new Animated.Value(0.5)).current;
   const opacityAnim = useRef(new Animated.Value(0.3)).current;
 
+  // Get exercises from meditation service
   const exercises = {
-    box: {
-      name: 'Box Breathing',
-      description: 'Inhale 4, Hold 4, Exhale 4, Hold 4',
-      phases: [
-        { name: 'inhale', duration: 4, instruction: 'Breathe In' },
-        { name: 'hold', duration: 4, instruction: 'Hold' },
-        { name: 'exhale', duration: 4, instruction: 'Breathe Out' },
-        { name: 'hold', duration: 4, instruction: 'Hold' },
-      ],
-    },
-    '478': {
-      name: '4-7-8 Breathing',
-      description: 'Inhale 4, Hold 7, Exhale 8',
-      phases: [
-        { name: 'inhale', duration: 4, instruction: 'Breathe In' },
-        { name: 'hold', duration: 7, instruction: 'Hold' },
-        { name: 'exhale', duration: 8, instruction: 'Breathe Out' },
-      ],
-    },
-    simple: {
-      name: 'Simple Breathing',
-      description: 'Inhale 5, Exhale 5',
-      phases: [
-        { name: 'inhale', duration: 5, instruction: 'Breathe In' },
-        { name: 'exhale', duration: 5, instruction: 'Breathe Out' },
-      ],
-    },
+    box: meditationService.getExerciseById('box'),
+    '478': meditationService.getExerciseById('478'),
+    simple: meditationService.getExerciseById('simple'),
   };
 
   const currentExercise = exercises[exerciseType];
@@ -114,29 +100,140 @@ export default function BreathingExercise({ visible, onClose }) {
     }
   }, [phase, isActive]);
 
-  const startExercise = () => {
+  const startExercise = async () => {
     setIsActive(true);
     setCycle(0);
     currentPhaseIndex.current = 0;
     setPhase(currentExercise.phases[0].name);
     setCount(currentExercise.phases[0].duration);
+    setSessionStartTime(Date.now());
+
+    // Start session tracking for authenticated users
+    if (user && !isAnonymous) {
+      try {
+        const result = await meditationService.startSession(user.id, exerciseType, 'breathing');
+        if (result.success) {
+          setSessionId(result.data.id);
+        }
+      } catch (error) {
+        console.error('Error starting session:', error);
+      }
+    }
+
+    // Play start sound if audio is enabled
+    if (audioEnabled) {
+      playSound('start');
+    }
   };
 
-  const stopExercise = () => {
+  const stopExercise = async () => {
     setIsActive(false);
+    const sessionDuration = sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 1000) : 0;
+    
+    // Complete session tracking for authenticated users
+    if (sessionId && user && !isAnonymous) {
+      try {
+        await meditationService.completeSession(sessionId, sessionDuration, cycle);
+        
+        // Show completion message and ask for effectiveness rating
+        if (sessionDuration > 30) { // Only ask for rating if session was longer than 30 seconds
+          Alert.alert(
+            'Session Complete!',
+            `Great job! You completed ${cycle} cycles in ${Math.floor(sessionDuration / 60)} minutes.`,
+            [
+              {
+                text: 'Rate Effectiveness',
+                onPress: () => showEffectivenessRating(),
+              },
+              {
+                text: 'Done',
+                style: 'default',
+              },
+            ]
+          );
+        }
+      } catch (error) {
+        console.error('Error completing session:', error);
+      }
+    }
+
+    // Reset state
     setCount(4);
     setCycle(0);
     currentPhaseIndex.current = 0;
     setPhase('inhale');
+    setSessionId(null);
+    setSessionStartTime(null);
     
     // Reset animations
     scaleAnim.setValue(0.5);
     opacityAnim.setValue(0.3);
+
+    // Play completion sound if audio is enabled
+    if (audioEnabled) {
+      playSound('complete');
+    }
   };
 
   const getCurrentInstruction = () => {
     return currentExercise.phases.find(p => p.name === phase)?.instruction || 'Breathe';
   };
+
+  // Audio functionality
+  const playSound = async (type) => {
+    try {
+      // For now, we'll use system sounds or simple audio cues
+      // In a full implementation, you would load actual audio files
+      if (type === 'inhale') {
+        // Play inhale sound
+      } else if (type === 'exhale') {
+        // Play exhale sound
+      } else if (type === 'start') {
+        // Play session start sound
+      } else if (type === 'complete') {
+        // Play completion sound
+      }
+    } catch (error) {
+      console.error('Error playing sound:', error);
+    }
+  };
+
+  // Show effectiveness rating dialog
+  const showEffectivenessRating = () => {
+    Alert.alert(
+      'How effective was this session?',
+      'Your feedback helps us provide better recommendations.',
+      [
+        { text: '⭐ Not helpful', onPress: () => rateSession(1) },
+        { text: '⭐⭐ Somewhat helpful', onPress: () => rateSession(2) },
+        { text: '⭐⭐⭐ Helpful', onPress: () => rateSession(3) },
+        { text: '⭐⭐⭐⭐ Very helpful', onPress: () => rateSession(4) },
+        { text: '⭐⭐⭐⭐⭐ Extremely helpful', onPress: () => rateSession(5) },
+        { text: 'Skip', style: 'cancel' },
+      ]
+    );
+  };
+
+  // Rate session effectiveness
+  const rateSession = async (rating) => {
+    if (sessionId) {
+      try {
+        await meditationService.rateSessionEffectiveness(sessionId, rating);
+        Alert.alert('Thank you!', 'Your feedback has been recorded.');
+      } catch (error) {
+        console.error('Error rating session:', error);
+      }
+    }
+  };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, [sound]);
 
   if (!visible) return null;
 

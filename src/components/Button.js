@@ -10,7 +10,8 @@ export default function Button({
   disabled = false,
   gradient = null,
   style = {},
-  textStyle = {}
+  textStyle = {},
+  ...props
 }) {
   const buttonStyles = [
     styles.button,
@@ -32,9 +33,21 @@ export default function Button({
     <Text style={textStyles}>{title}</Text>
   );
 
+  const accessibilityProps = {
+    accessible: true,
+    accessibilityRole: 'button',
+    accessibilityState: { disabled },
+    ...props
+  };
+
   if (gradient && !disabled) {
     return (
-      <TouchableOpacity onPress={onPress} disabled={disabled} style={style}>
+      <TouchableOpacity 
+        onPress={onPress} 
+        disabled={disabled} 
+        style={style}
+        {...accessibilityProps}
+      >
         <LinearGradient
           colors={gradient}
           style={[styles.button, styles[size]]}
@@ -46,7 +59,12 @@ export default function Button({
   }
 
   return (
-    <TouchableOpacity style={buttonStyles} onPress={onPress} disabled={disabled}>
+    <TouchableOpacity 
+      style={buttonStyles} 
+      onPress={onPress} 
+      disabled={disabled}
+      {...accessibilityProps}
+    >
       <ButtonContent />
     </TouchableOpacity>
   );

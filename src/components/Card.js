@@ -1,9 +1,13 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 
-export default function Card({ children, style = {}, padding = 16 }) {
+export default function Card({ children, style = {}, padding = 16, ...props }) {
   return (
-    <View style={[styles.card, { padding }, style]}>
+    <View 
+      style={[styles.card, { padding }, style]} 
+      testID="card"
+      {...props}
+    >
       {children}
     </View>
   );

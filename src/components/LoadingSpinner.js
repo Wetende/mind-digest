@@ -5,11 +5,16 @@ export default function LoadingSpinner({
   size = 'large', 
   color = '#6366f1', 
   text = 'Loading...',
-  style = {} 
+  style = {},
+  ...props
 }) {
   return (
-    <View style={[styles.container, style]}>
-      <ActivityIndicator size={size} color={color} />
+    <View style={[styles.container, style]} {...props}>
+      <ActivityIndicator 
+        size={size} 
+        color={color} 
+        testID="activity-indicator"
+      />
       {text && <Text style={styles.text}>{text}</Text>}
     </View>
   );

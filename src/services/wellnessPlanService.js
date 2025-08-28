@@ -1,6 +1,7 @@
 import { supabase } from "../config/supabase";
 import aiService from "./aiService";
 import moodService from "./moodService";
+import habitTrackingService from "./habitTrackingService";
 
 class WellnessPlanService {
   constructor() {
@@ -544,6 +545,17 @@ class WellnessPlanService {
       // Update plan progress
       if (data && data[0]) {
         await this.updatePlanProgress(data[0].plan_id);
+        
+        // Award points for completing wellness task
+        await habitTrackingService.awardPoints(
+          data[0].user_id,
+          'WELLNESS_TASK',
+          {
+            taskId: taskId,
+            category: data[0].category,
+            points: data[0].points,
+          }
+        );
       }
 
       return { success: true, data: data[0] };

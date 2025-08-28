@@ -10,3 +10,5 @@ export { default as moodTrackingService } from './moodTrackingService';
 export { default as scenarioPlannerService } from './scenarioPlannerService';
 export { default as socialProgressService } from './socialProgressService';
 export { default as wellnessPlanService } from './wellnessPlanService';
+export { default as meditationService } from './meditationService';
+export { default as habitTrackingService } from './habitTrackingService';

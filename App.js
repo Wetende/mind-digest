@@ -18,6 +18,8 @@ import RolePlayScreen from './src/screens/RolePlayScreen';
 import ScenarioPlannerScreen from './src/screens/ScenarioPlannerScreen';
 import MoodTrackingScreen from './src/screens/MoodTrackingScreen';
 import UserMatchingScreen from './src/screens/UserMatchingScreen';
+import HabitTrackingScreen from './src/screens/HabitTrackingScreen';
+import SocialAccountabilityScreen from './src/screens/SocialAccountabilityScreen';
 // import WellnessPlanCreationScreen from './src/screens/WellnessPlanCreationScreen';
 // import WellnessPlanScreen from './src/screens/WellnessPlanScreen';
 // import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
@@ -181,6 +183,16 @@ function MainAppStack() {
       <Stack.Screen 
         name="UserMatching" 
         component={UserMatchingScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="HabitTracking" 
+        component={HabitTrackingScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="SocialAccountability" 
+        component={SocialAccountabilityScreen}
         options={{ headerShown: false }}
       />
       {/* <Stack.Screen 
