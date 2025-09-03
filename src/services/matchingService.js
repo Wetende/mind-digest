@@ -1,4 +1,6 @@
 import { supabase } from '../config/supabase';
+import behaviorLearningService from './behaviorLearningService';
+import aiService from './aiService';
 
 class MatchingService {
   // Find compatible peers based on shared experiences and interests
@@ -32,15 +34,19 @@ class MatchingService {
 
       if (matchError) throw matchError;
 
-      // Calculate compatibility scores
-      const scoredMatches = potentialMatches.map(match => ({
-        ...match,
-        compatibilityScore: this.calculateCompatibility(currentUser, match),
-        sharedInterests: this.getSharedInterests(currentUser, match),
-        sharedExperiences: this.getSharedExperiences(currentUser, match)
-      }));
+      // Calculate compatibility scores with AI enhancement
+      const scoredMatches = await Promise.all(
+        potentialMatches.map(async (match) => ({
+          ...match,
+          compatibilityScore: await this.calculateEnhancedCompatibility(currentUser, match, userId),
+          behavioralSimilarity: await this.calculateBehavioralSimilarity(userId, match.id),
+          sharedInterests: this.getSharedInterests(currentUser, match),
+          sharedExperiences: this.getSharedExperiences(currentUser, match),
+          aiInsights: await this.getAIMatchingInsights(currentUser, match, userId)
+        }))
+      );
 
-      // Sort by compatibility score and filter out low scores
+      // Sort by enhanced compatibility score
       const filteredMatches = scoredMatches
         .filter(match => match.compatibilityScore >= 0.3)
         .sort((a, b) => b.compatibilityScore - a.compatibilityScore)
@@ -50,6 +56,344 @@ class MatchingService {
     } catch (error) {
       return { success: false, error: error.message };
     }
+  }
+
+  // Enhanced compatibility calculation with AI and behavioral data
+  async calculateEnhancedCompatibility(user1, user2, userId1) {
+    let score = 0;
+    let factors = 0;
+
+    // Traditional compatibility (60% weight)
+    const traditionalScore = this.calculateCompatibility(user1, user2);
+    score += traditionalScore * 0.6;
+    factors += 0.6;
+
+    // Behavioral similarity (30% weight)
+    try {
+      const behavioralSimilarity = await this.calculateBehavioralSimilarity(userId1, user2.id);
+      score += behavioralSimilarity * 0.3;
+    } catch (error) {
+      console.warn('Failed to calculate behavioral similarity:', error);
+    }
+    factors += 0.3;
+
+    // AI-powered insights (10% weight)
+    if (factors > 0.8) {
+      try {
+        const aiInsights = await aiService.analyzePeerCompatibility(user1, user2);
+        if (aiInsights && aiInsights.compatibilityScore !== undefined) {
+          score += aiInsights.compatibilityScore * 0.1;
+        }
+      } catch (error) {
+        console.warn('Failed to get AI compatibility insights:', error);
+      }
+    }
+    factors += 0.1;
+
+    return factors > 0 ? score / factors : 0;
+  }
+
+  // Calculate behavioral similarity between users
+  async calculateBehavioralSimilarity(userId1, userId2) {
+    try {
+      // Get behavior patterns for both users
+      const user1Patterns = await behaviorLearningService.learnUserPatterns();
+      const user2Interactions = await this.getUserBehavioralData(userId2);
+
+      if (!user2Interactions || user2Interactions.length < 5) {
+        return 0.5; // Default moderate similarity if insufficient data
+      }
+
+      // Calculate similarity in activity patterns
+      let similarityScore = 0;
+      let factors = 0;
+
+      // Compare activity preferences
+      const user1Activities = user1Patterns.contentPreferences?.activityTypes || {};
+      const user2Activities = this.extractActivityPreferences(user2Interactions);
+
+      if (Object.keys(user1Activities).length > 0 && Object.keys(user2Activities).length > 0) {
+        const activityOverlap = this.calculateOverlap(Object.keys(user1Activities), Object.keys(user2Activities));
+        similarityScore += activityOverlap * 0.4;
+        factors += 0.4;
+      }
+
+      // Compare engagement times
+      const user1TimePrefs = user1Patterns.timePreferences || {};
+      const user2TimePrefs = this.extractTimePreferences(user2Interactions);
+
+      if (Object.keys(user1TimePrefs).length > 0) {
+        const timeSimilarity = this.calculateTimeSimilarity(user1TimePrefs, user2TimePrefs);
+        similarityScore += timeSimilarity * 0.3;
+        factors += 0.3;
+      }
+
+      // Compare mood-based preferences
+      const user1MoodPrefs = user1Patterns.moodPatterns || {};
+      const user2MoodPrefs = this.extractMoodPreferences(user2Interactions);
+
+      if (Object.keys(user1MoodPrefs).length > 0) {
+        const moodSimilarity = this.calculateMoodSimilarity(user1MoodPrefs, user2MoodPrefs);
+        similarityScore += moodSimilarity * 0.3;
+        factors += 0.3;
+      }
+
+      return factors > 0 ? similarityScore / factors : 0.5;
+
+    } catch (error) {
+      console.warn('Failed to calculate behavioral similarity:', error);
+      return 0.5; // Default to moderate similarity
+    }
+  }
+
+  // Get behavioral data for a user
+  async getUserBehavioralData(userId) {
+    try {
+      // This would typically fetch from a database of user interactions
+      // For now, return mock data structure
+      return []; // Placeholder - would be populated with actual data
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // Extract activity preferences from interaction data
+  extractActivityPreferences(interactions) {
+    const activityCounts = {};
+    interactions.forEach(interaction => {
+      const type = interaction.type || 'general';
+      activityCounts[type] = (activityCounts[type] || 0) + 1;
+    });
+    return activityCounts;
+  }
+
+  // Extract time preferences from interaction data
+  extractTimePreferences(interactions) {
+    const timePrefs = {};
+    interactions.forEach(interaction => {
+      if (interaction.context && interaction.context.timeOfDay) {
+        const timeOfDay = interaction.context.timeOfDay;
+        timePrefs[timeOfDay] = (timePrefs[timeOfDay] || 0) + 1;
+      }
+    });
+    return timePrefs;
+  }
+
+  // Extract mood preferences from interaction data
+  extractMoodPreferences(interactions) {
+    const moodPrefs = {};
+    interactions.forEach(interaction => {
+      if (interaction.context && interaction.context.mood) {
+        const mood = this.normalizeMood(interaction.context.mood.emotion) || 'neutral';
+        moodPrefs[mood] = (moodPrefs[mood] || 0) + 1;
+      }
+    });
+    return moodPrefs;
+  }
+
+  // Calculate activity overlap between user preferences
+  calculateOverlap(activities1, activities2) {
+    if (activities1.length === 0 || activities2.length === 0) return 0;
+
+    const set1 = new Set(activities1);
+    const set2 = new Set(activities2);
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+
+    return intersection.size / union.size;
+  }
+
+  // Calculate time preference similarity
+  calculateTimeSimilarity(timePrefs1, timePrefs2) {
+    const timesOfDay = ['morning', 'afternoon', 'evening', 'night'];
+    let similarity = 0;
+    let validComparisons = 0;
+
+    timesOfDay.forEach(timeOfDay => {
+      const pref1 = timePrefs1[timeOfDay] || 0;
+      const pref2 = timePrefs2[timeOfDay] || 0;
+
+      if (pref1 > 0 || pref2 > 0) {
+        const normalizedPref1 = pref1 / Math.max(1, Object.values(timePrefs1).reduce((a, b) => a + b, 0));
+        const normalizedPref2 = pref2 / Math.max(1, Object.values(timePrefs2).reduce((a, b) => a + b, 0));
+        similarity += 1 - Math.abs(normalizedPref1 - normalizedPref2);
+        validComparisons++;
+      }
+    });
+
+    return validComparisons > 0 ? similarity / validComparisons : 0.5;
+  }
+
+  // Calculate mood preference similarity
+  calculateMoodSimilarity(moodPrefs1, moodPrefs2) {
+    const moods = ['happy', 'neutral', 'sad', 'anxious', 'stressed'];
+    let similarity = 0;
+    let validComparisons = 0;
+
+    moods.forEach(mood => {
+      const pref1 = moodPrefs1[mood] || 0;
+      const pref2 = moodPrefs2[mood] || 0;
+
+      if (pref1 > 0 || pref2 > 0) {
+        const normalizedPref1 = pref1 / Math.max(1, Object.values(moodPrefs1).reduce((a, b) => a + b, 0));
+        const normalizedPref2 = pref2 / Math.max(1, Object.values(moodPrefs2).reduce((a, b) => a + b, 0));
+        similarity += 1 - Math.abs(normalizedPref1 - normalizedPref2);
+        validComparisons++;
+      }
+    });
+
+    return validComparisons > 0 ? similarity / validComparisons : 0.5;
+  }
+
+  // Normalize mood categories
+  normalizeMood(mood) {
+    if (!mood) return 'neutral';
+    const moodMap = {
+      'joy': 'happy',
+      'happiness': 'happy',
+      'happy': 'happy',
+      'sad': 'sad',
+      'sadness': 'sad',
+      'depressed': 'sad',
+      'anxious': 'anxious',
+      'anxiety': 'anxious',
+      'worried': 'anxious',
+      'stressed': 'stressed',
+      'stress': 'stressed',
+      'overwhelmed': 'stressed',
+      'calm': 'neutral',
+      'neutral': 'neutral'
+    };
+    return moodMap[mood.toLowerCase()] || 'neutral';
+  }
+
+  // Get AI-powered matching insights
+  async getAIMatchingInsights(user1, user2, userId1) {
+    try {
+      // Only use AI if we have sufficient interaction data
+      const user1Patterns = await behaviorLearningService.learnUserPatterns();
+      const user1Interactions = await behaviorLearningService.getRecentInteractions(20);
+
+      if (user1Interactions.length >= 10) {
+        const insights = await aiService.generatePeerMatchingInsights({
+          user1: { profile: user1, patterns: user1Patterns },
+          user2: { profile: user2 },
+          compatibilityData: {
+            sharedInterests: this.getSharedInterests(user1, user2),
+            sharedExperiences: this.getSharedExperiences(user1, user2),
+            ageCompatible: user1.age_range && user2.age_range ?
+              this.areAgeRangesCompatible(user1.age_range, user2.age_range) : null,
+            communicationMatch: user1.preferred_communication_style === user2.preferred_communication_style
+          }
+        });
+
+        return insights || {};
+      }
+
+      return {};
+    } catch (error) {
+      console.warn('Failed to get AI matching insights:', error);
+      return {};
+    }
+  }
+
+  // Get compatible peers with enhanced filtering and AI suggestions
+  async getCompatiblePeers(userId, options = {}) {
+    try {
+      const matchResult = await this.findMatches(userId, { limit: 20 });
+      if (!matchResult.success) {
+        return matchResult;
+      }
+
+      let peers = matchResult.data;
+
+      // Apply additional AI-powered filtering if requested
+      if (options.useAISuggestions) {
+        peers = await this.applyAISuggestionsFilter(peers, userId, options);
+      }
+
+      // Sort by recommendation priority
+      peers = this.sortByRecommendationPriority(peers, options.context || {});
+
+      // Group by interaction type recommendations
+      const categorizedPeers = {
+        primarySupport: peers.filter(peer => peer.aiInsights?.recommendedRole === 'primary_support' || peer.compatibilityScore > 0.8),
+        activityPartners: peers.filter(peer => peer.aiInsights?.recommendedRole === 'activity_partner'),
+        mentorMentee: peers.filter(peer => peer.aiInsights?.recommendedRole === 'mentor' || peer.aiInsights?.recommendedRole === 'mentee'),
+        casualConnections: peers.filter(peer => peer.compatibilityScore >= 0.4 && peer.compatibilityScore <= 0.7)
+      };
+
+      return {
+        success: true,
+        data: categorizedPeers,
+        meta: {
+          totalMatches: peers.length,
+          aiEnhanced: options.useAISuggestions || false,
+          averageSimilarity: peers.length > 0 ?
+            peers.reduce((sum, peer) => sum + (peer.behavioralSimilarity || 0.5), 0) / peers.length : 0
+        }
+      };
+
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Apply AI suggestions filtering
+  async applyAISuggestionsFilter(peers, userId, options) {
+    try {
+      const userContext = await behaviorLearningService.getCurrentContext();
+      const patterns = await behaviorLearningService.learnUserPatterns();
+
+      const aiFilteredPeers = await aiService.filterPeerSuggestions({
+        peers,
+        userContext,
+        patterns,
+        options
+      });
+
+      return aiFilteredPeers || peers; // Fall back to original peers if AI filtering fails
+
+    } catch (error) {
+      console.warn('AI suggestions filtering failed:', error);
+      return peers;
+    }
+  }
+
+  // Sort peers by recommendation priority
+  sortByRecommendationPriority(peers, context) {
+    const currentFrame = context.mood || 'neutral';
+
+    return peers.sort((a, b) => {
+      // Priority scoring based on context and behavioral match
+      const aScore = this.calculateRecommendationScore(a, context);
+      const bScore = this.calculateRecommendationScore(b, context);
+      return bScore - aScore;
+    });
+  }
+
+  // Calculate recommendation score for sorting
+  calculateRecommendationScore(peer, context) {
+    let score = peer.compatibilityScore * 0.4;
+    score += (peer.behavioralSimilarity || 0.5) * 0.3;
+
+    // Add context-based scoring
+    if (context.mood) {
+      const normalizedMood = this.normalizeMood(context.mood);
+      if (peer.aiInsights && peer.aiInsights.moodSuitability) {
+        if (peer.aiInsights.moodSuitability[normalizedMood] > 0.7) {
+          score += 0.2;
+        }
+      }
+    }
+
+    // Recency bonus for active users
+    const daysSinceActive = (Date.now() - new Date(peer.last_active).getTime()) / (24 * 60 * 60 * 1000);
+    if (daysSinceActive < 7) {
+      score += 0.1;
+    }
+
+    return score;
   }
 
   // Calculate compatibility score between two users

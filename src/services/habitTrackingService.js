@@ -146,7 +146,15 @@ class HabitTrackingService {
         .select()
         .single();
 
-      if (activityError) throw activityError;
+      if (activityError) {
+        console.error('Habit activity insert error:', activityError);
+        // Don't throw error if table doesn't exist yet - just log it
+        if (activityError.code === '42P01') {
+          console.warn('habit_activities table does not exist yet. Skipping points tracking.');
+          return { success: true, data: { pointsEarned: totalPoints, tableWarning: true } };
+        }
+        throw activityError;
+      }
 
       // Update user's total points and streaks
       await this.updateUserStats(userId, totalPoints, activityType);

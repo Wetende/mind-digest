@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { moodService } from '../services';
 import habitTrackingService from '../services/habitTrackingService';
+
 // import wellnessPlanService from '../services/wellnessPlanService';
 // import { WellnessTaskCard } from '../components';
 import { PointsAnimation } from '../components';

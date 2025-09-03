@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text, Alert } from 'react-native';
+import { configValidator } from './src/utils/configValidator';
+import { initSentry } from './src/utils/sentryConfig';
+import { ENV } from './src/config/env';
 
 // Import main screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -20,9 +23,9 @@ import MoodTrackingScreen from './src/screens/MoodTrackingScreen';
 import UserMatchingScreen from './src/screens/UserMatchingScreen';
 import HabitTrackingScreen from './src/screens/HabitTrackingScreen';
 import SocialAccountabilityScreen from './src/screens/SocialAccountabilityScreen';
-// import WellnessPlanCreationScreen from './src/screens/WellnessPlanCreationScreen';
-// import WellnessPlanScreen from './src/screens/WellnessPlanScreen';
-// import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
+import WellnessPlanCreationScreen from './src/screens/WellnessPlanCreationScreen';
+import WellnessPlanScreen from './src/screens/WellnessPlanScreen';
+import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
 
 // Import auth screens
 import {
@@ -190,26 +193,26 @@ function MainAppStack() {
         component={HabitTrackingScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen 
-        name="SocialAccountability" 
+      <Stack.Screen
+        name="SocialAccountability"
         component={SocialAccountabilityScreen}
         options={{ headerShown: false }}
       />
-      {/* <Stack.Screen 
-        name="WellnessPlanCreation" 
+      <Stack.Screen
+        name="WellnessPlanCreation"
         component={WellnessPlanCreationScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen 
-        name="WellnessPlan" 
+      <Stack.Screen
+        name="WellnessPlan"
         component={WellnessPlanScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen 
-        name="NotificationSettings" 
+      <Stack.Screen
+        name="NotificationSettings"
         component={NotificationSettingsScreen}
         options={{ headerShown: false }}
-      /> */}
+      />
     </Stack.Navigator>
   );
 }
@@ -239,6 +242,11 @@ function AppNavigator() {
 }
 
 export default function App() {
+  // Initialize Sentry crash reporting early
+  useEffect(() => {
+    initSentry();
+  }, []);
+
   return (
     <AuthProvider>
       <NavigationContainer>

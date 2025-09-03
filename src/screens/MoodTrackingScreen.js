@@ -12,8 +12,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { moodTrackingService } from '../services';
-import { LoadingSpinner } from '../components';
+import { moodTrackingService, socialSharingService } from '../services';
+import { LoadingSpinner, SocialShareButton } from '../components';
 import { theme } from '../theme';
 
 const { width } = Dimensions.get('window');
@@ -338,6 +338,37 @@ export default function MoodTrackingScreen({ navigation }) {
           )}
         </TouchableOpacity>
 
+        {/* Social Sharing Section */}
+        {todaysEntry && (
+          <View style={styles.shareSection}>
+            <View style={styles.shareHeader}>
+              <Ionicons name="share-social" size={20} color={theme.colors.primary[600]} />
+              <Text style={styles.shareTitle}>Share Your Progress</Text>
+            </View>
+            <Text style={styles.shareDescription}>
+              Help others on their mental health journey by sharing your experience.
+              Your data will be anonymized to protect your privacy.
+            </Text>
+            <SocialShareButton
+              data={{
+                mood: moodData.moodScore,
+                emotion: MOOD_EMOJIS[moodData.moodScore - 1],
+                energy: ENERGY_LEVELS[moodData.energyLevel - 1],
+                note: moodData.notes,
+                stress: moodData.stressLevel,
+                anxiety: moodData.anxietyLevel,
+                activities: moodData.activities.length,
+                socialInteractions: moodData.socialInteractions,
+                exerciseMinutes: moodData.exerciseMinutes
+              }}
+              templateType="mood"
+              anonymous={true}
+              userPreferences={{ anonymousOnly: false }}
+              showText={true}
+            />
+          </View>
+        )}
+
         <View style={styles.bottomPadding} />
       </ScrollView>
     </View>
@@ -552,6 +583,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
     marginLeft: 8,
+  },
+  // Social Sharing Styles
+  shareSection: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary[500],
+  },
+  shareHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  shareTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.primary[700],
+    marginLeft: 8,
+  },
+  shareDescription: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    lineHeight: 20,
+    marginBottom: 16,
   },
   bottomPadding: {
     height: 20,

@@ -1,3 +1,6 @@
+-- Enable pgcrypto extension for gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Create database tables for Mind-digest
 
 -- Users table (extends Supabase auth.users)

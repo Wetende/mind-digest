@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authService } from '../services';
 import { storeAnonymousSession, getAnonymousSession, clearAnonymousSession } from '../utils';
+import { setSentryUser, trackUserEngagement } from '../utils/sentryConfig';
 
 const AuthContext = createContext({});
 
@@ -28,10 +29,15 @@ export const AuthProvider = ({ children }) => {
         setUser(session.user);
         setIsAnonymous(false);
         setLoading(false);
+        // Set Sentry user context for crash reporting and analytics
+        setSentryUser(session.user);
+        trackUserEngagement('auth_state_change', 'authentication');
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setIsAnonymous(false);
         setLoading(false);
+        // Clear Sentry user context on sign out
+        setSentryUser(null);
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         setUser(session.user);
         setIsAnonymous(false);
@@ -99,9 +105,13 @@ export const AuthProvider = ({ children }) => {
         setUser(result.data.user);
         setIsAnonymous(false);
         setLoading(false);
-        
+
         // Clear any anonymous session
         await clearAnonymousSession();
+
+        // Set Sentry user context for crash reporting and analytics
+        setSentryUser(result.data.user);
+        trackUserEngagement('auth_sign_in', 'authentication');
         
         console.log('User state updated, should navigate now');
       }

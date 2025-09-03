@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 
+
 export default function ProfileScreen({ navigation }) {
   const { user, isAnonymous, signOut, updateProfile } = useAuth();
   const [notifications, setNotifications] = useState(true);

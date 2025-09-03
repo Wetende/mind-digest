@@ -21,6 +21,9 @@ export const ENV = {
     process.env.EXPO_PUBLIC_TIKTOK_CLIENT_KEY || "YOUR_TIKTOK_CLIENT_KEY",
   X_API_KEY: process.env.EXPO_PUBLIC_X_API_KEY || "YOUR_X_API_KEY",
 
+  // Observability & Monitoring
+  SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN || null,
+
   // App Configuration
   APP_NAME: "Mind-digest",
   APP_VERSION: "1.0.0",

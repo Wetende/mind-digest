@@ -15,7 +15,7 @@ import habitTrackingService from '../services/habitTrackingService';
 import HabitTracker from '../components/HabitTracker';
 import HabitChallengeCard from '../components/HabitChallengeCard';
 import PointsAnimation from '../components/PointsAnimation';
-import HabitTrackingDemo from '../components/HabitTrackingDemo';
+
 import LoadingSpinner from '../components/LoadingSpinner';
 import { colors, spacing, typography } from '../theme';
 
@@ -161,52 +161,7 @@ const HabitTrackingScreen = ({ navigation }) => {
     </LinearGradient>
   );
 
-  const renderQuickActions = () => (
-    <View style={styles.quickActions}>
-      <Text style={styles.sectionTitle}>Quick Test Actions</Text>
-      <Text style={styles.sectionSubtitle}>
-        Test the habit tracking system (for demo purposes)
-      </Text>
-      
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleTestActivity('MOOD_LOG')}
-        >
-          <Ionicons name="happy" size={20} color={colors.primary} />
-          <Text style={styles.actionButtonText}>Log Mood</Text>
-          <Text style={styles.actionButtonPoints}>+10 pts</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleTestActivity('JOURNAL_ENTRY')}
-        >
-          <Ionicons name="book" size={20} color={colors.primary} />
-          <Text style={styles.actionButtonText}>Journal</Text>
-          <Text style={styles.actionButtonPoints}>+15 pts</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleTestActivity('BREATHING_EXERCISE')}
-        >
-          <Ionicons name="leaf" size={20} color={colors.primary} />
-          <Text style={styles.actionButtonText}>Breathe</Text>
-          <Text style={styles.actionButtonPoints}>+12 pts</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleTestActivity('SOCIAL_INTERACTION')}
-        >
-          <Ionicons name="people" size={20} color={colors.primary} />
-          <Text style={styles.actionButtonText}>Social</Text>
-          <Text style={styles.actionButtonPoints}>+18 pts</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+
 
   const renderActiveChallenges = () => {
     const activeChallenges = challenges.filter(c => c.status === 'active');
@@ -286,9 +241,7 @@ const HabitTrackingScreen = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <HabitTrackingDemo />
         <HabitTracker onPointsEarned={loadData} />
-        {renderQuickActions()}
         {renderActiveChallenges()}
         {renderAvailableChallenges()}
       </ScrollView>

@@ -20,23 +20,32 @@ class MoodService {
         }])
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Mood entry error:', error);
+        throw error;
+      }
 
-      // Award points for mood logging
+      // Award points for mood logging (only if insert succeeded)
       if (data && data[0]) {
-        await habitTrackingService.awardPoints(
-          moodData.userId,
-          'MOOD_LOG',
-          {
-            mood: moodData.mood,
-            hasEmotions: moodData.emotions && moodData.emotions.length > 0,
-            hasNotes: moodData.notes && moodData.notes.length > 0,
-          }
-        );
+        try {
+          await habitTrackingService.awardPoints(
+            moodData.userId,
+            'MOOD_LOG',
+            {
+              mood: moodData.mood,
+              hasEmotions: moodData.emotions && moodData.emotions.length > 0,
+              hasNotes: moodData.notes && moodData.notes.length > 0,
+            }
+          );
+        } catch (pointsError) {
+          console.warn('Failed to award points, but mood was saved:', pointsError);
+          // Don't fail the mood entry if points fail
+        }
       }
 
       return { success: true, data: data[0] };
     } catch (error) {
+      console.error('Create mood entry failed:', error);
       return { success: false, error: error.message };
     }
   }

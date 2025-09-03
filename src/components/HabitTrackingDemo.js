@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '../theme';
+import { ENV } from '../config/env';
 
 const HabitTrackingDemo = () => {
   const [userStats, setUserStats] = useState({
@@ -420,4 +421,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HabitTrackingDemo;
+// COMPLETELY REMOVE FROM PRODUCTION - No mocks allowed
+export default () => null;

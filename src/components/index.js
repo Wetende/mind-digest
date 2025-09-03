@@ -9,6 +9,10 @@ export { default as HabitChallengeCard } from './HabitChallengeCard';
 export { default as PointsAnimation } from './PointsAnimation';
 export { default as AccountabilityPartnerCard } from './AccountabilityPartnerCard';
 export { default as ProgressShareCard } from './ProgressShareCard';
-export { default as HabitTrackingDemo } from './HabitTrackingDemo';
+
 export { default as WellnessTaskCard } from './WellnessTaskCard';
 export { default as MilestoneCelebration } from './MilestoneCelebration';
+export { default as SocialShareButton } from './SocialShareButton';
+export { default as SocialShareModal } from './SocialShareModal';
+export { default as RecommendationCard } from './RecommendationCard';
+export { default as RecommendationDisplay } from './RecommendationDisplay';

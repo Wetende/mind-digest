@@ -120,7 +120,7 @@ const TestApp = ({ initialScreen = 'Login' }) => {
   );
 };
 
-describe.skip('User Journey Integration Tests', () => {
+describe('User Journey Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Suppress console logs during tests
