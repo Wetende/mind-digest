@@ -625,7 +625,131 @@ CREATE POLICY "Users can update own challenges" ON user_challenges FOR UPDATE US
 CREATE INDEX IF NOT EXISTS idx_habit_activities_user_type ON habit_activities(user_id, activity_type);
 CREATE INDEX IF NOT EXISTS idx_habit_activities_completed_at ON habit_activities(completed_at);
 CREATE INDEX IF NOT EXISTS idx_user_challenges_status ON user_challenges(user_id, status);
-CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);--
+CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);
+
+-- User behavior learning tables for AI-powered recommendations
+
+-- User behavior profiles for storing learning preferences and patterns
+CREATE TABLE IF NOT EXISTS user_behavior_profiles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  learning_preferences JSONB DEFAULT '{}',
+  interaction_patterns JSONB DEFAULT '{}',
+  content_preferences JSONB DEFAULT '{}',
+  peer_preferences JSONB DEFAULT '{}',
+  adaptation_settings JSONB DEFAULT '{}',
+  last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- User behavior data for tracking all interactions
+CREATE TABLE IF NOT EXISTS user_behavior_data (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  interaction_type TEXT NOT NULL,
+  interaction_data JSONB NOT NULL,
+  context_data JSONB DEFAULT '{}',
+  effectiveness_score DECIMAL,
+  user_rating INTEGER CHECK (user_rating >= 1 AND user_rating <= 5),
+  session_id UUID,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Recommendation history for tracking recommendation effectiveness
+CREATE TABLE IF NOT EXISTS recommendation_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  recommendation_type TEXT NOT NULL,
+  recommendation_data JSONB NOT NULL,
+  context_at_time JSONB DEFAULT '{}',
+  user_action TEXT CHECK (user_action IN ('viewed', 'accepted', 'declined', 'completed', 'ignored')),
+  effectiveness_rating INTEGER CHECK (effectiveness_rating >= 1 AND effectiveness_rating <= 5),
+  adaptation_applied BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  responded_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Content interaction tracking for learning content preferences
+CREATE TABLE IF NOT EXISTS content_interactions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  content_type TEXT NOT NULL,
+  content_id TEXT NOT NULL,
+  interaction_type TEXT NOT NULL CHECK (interaction_type IN ('view', 'like', 'share', 'complete', 'skip', 'rate')),
+  duration_seconds INTEGER,
+  completion_percentage DECIMAL CHECK (completion_percentage >= 0 AND completion_percentage <= 100),
+  user_rating INTEGER CHECK (user_rating >= 1 AND user_rating <= 5),
+  context_data JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Peer interaction tracking for social recommendations
+CREATE TABLE IF NOT EXISTS peer_interactions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  peer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  interaction_type TEXT NOT NULL CHECK (interaction_type IN ('message', 'support', 'activity', 'recommendation')),
+  interaction_quality TEXT CHECK (interaction_quality IN ('positive', 'neutral', 'negative')),
+  interaction_data JSONB DEFAULT '{}',
+  mutual_rating INTEGER CHECK (mutual_rating >= 1 AND mutual_rating <= 5),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Real-time adaptation cache for storing contextual adaptations
+CREATE TABLE IF NOT EXISTS adaptation_cache (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  context_key TEXT NOT NULL,
+  adaptation_data JSONB NOT NULL,
+  confidence_score DECIMAL CHECK (confidence_score >= 0 AND confidence_score <= 1),
+  expires_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, context_key)
+);
+
+-- Enable RLS for behavior learning tables
+ALTER TABLE user_behavior_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_behavior_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recommendation_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE content_interactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE peer_interactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE adaptation_cache ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for user_behavior_profiles
+CREATE POLICY "Users can view own behavior profile" ON user_behavior_profiles FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own behavior profile" ON user_behavior_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own behavior profile" ON user_behavior_profiles FOR UPDATE USING (auth.uid() = user_id);
+
+-- Create policies for user_behavior_data
+CREATE POLICY "Users can view own behavior data" ON user_behavior_data FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own behavior data" ON user_behavior_data FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Create policies for recommendation_history
+CREATE POLICY "Users can view own recommendation history" ON recommendation_history FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own recommendation history" ON recommendation_history FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own recommendation history" ON recommendation_history FOR UPDATE USING (auth.uid() = user_id);
+
+-- Create policies for content_interactions
+CREATE POLICY "Users can view own content interactions" ON content_interactions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own content interactions" ON content_interactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Create policies for peer_interactions
+CREATE POLICY "Users can view own peer interactions" ON peer_interactions FOR SELECT USING (auth.uid() = user_id OR auth.uid() = peer_id);
+CREATE POLICY "Users can insert own peer interactions" ON peer_interactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Create policies for adaptation_cache
+CREATE POLICY "Users can view own adaptation cache" ON adaptation_cache FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own adaptation cache" ON adaptation_cache FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own adaptation cache" ON adaptation_cache FOR UPDATE USING (auth.uid() = user_id);
+
+-- Create indexes for behavior learning performance
+CREATE INDEX IF NOT EXISTS idx_user_behavior_data_user_type ON user_behavior_data(user_id, interaction_type);
+CREATE INDEX IF NOT EXISTS idx_user_behavior_data_created_at ON user_behavior_data(created_at);
+CREATE INDEX IF NOT EXISTS idx_recommendation_history_user_type ON recommendation_history(user_id, recommendation_type);
+CREATE INDEX IF NOT EXISTS idx_content_interactions_user_content ON content_interactions(user_id, content_type, content_id);
+CREATE INDEX IF NOT EXISTS idx_peer_interactions_users ON peer_interactions(user_id, peer_id);
+CREATE INDEX IF NOT EXISTS idx_adaptation_cache_context ON adaptation_cache(user_id, context_key);--
  Social accountability tables for habit tracking
 
 -- Progress sharing table
@@ -738,3 +862,273 @@ CREATE INDEX IF NOT EXISTS idx_progress_shares_created_at ON progress_shares(cre
 CREATE INDEX IF NOT EXISTS idx_accountability_requests_to_user ON accountability_requests(to_user_id, status);
 CREATE INDEX IF NOT EXISTS idx_accountability_partnerships_users ON accountability_partnerships(user1_id, user2_id, status);
 CREATE INDEX IF NOT EXISTS idx_partner_encouragements_to_user ON partner_encouragements(to_user_id, created_at);
+
+-- Social sharing and daily prompts tables
+
+-- Daily prompts table for wellness content creation
+CREATE TABLE IF NOT EXISTS daily_prompts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('gratitude', 'mindfulness', 'growth', 'connection', 'selfcare', 'resilience', 'hope', 'reflection')),
+  prompt_text TEXT NOT NULL,
+  user_response TEXT,
+  is_completed BOOLEAN DEFAULT false,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, date)
+);
+
+-- User prompt preferences table
+CREATE TABLE IF NOT EXISTS user_preferences (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  prompt_categories TEXT[] DEFAULT '{}',
+  notification_settings JSONB DEFAULT '{}',
+  privacy_settings JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- Shareable content table for multi-platform sharing
+CREATE TABLE IF NOT EXISTS shareable_content (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  content_type TEXT NOT NULL CHECK (content_type IN ('mood_update', 'achievement', 'tip', 'quote', 'prompt_response', 'milestone')),
+  base_content JSONB NOT NULL,
+  platform_content JSONB NOT NULL,
+  is_anonymous BOOLEAN DEFAULT true,
+  platforms TEXT[] DEFAULT '{}',
+  engagement_stats JSONB DEFAULT '{"views": 0, "likes": 0, "shares": 0}',
+  shared_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Social sharing analytics table
+CREATE TABLE IF NOT EXISTS sharing_analytics (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  content_id UUID REFERENCES shareable_content(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL,
+  action_type TEXT NOT NULL CHECK (action_type IN ('view', 'like', 'share', 'comment', 'click')),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Content templates table for platform-specific formatting
+CREATE TABLE IF NOT EXISTS content_templates (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  template_name TEXT NOT NULL,
+  platform TEXT NOT NULL CHECK (platform IN ('instagram', 'tiktok', 'x', 'facebook')),
+  content_type TEXT NOT NULL,
+  template_data JSONB NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(template_name, platform, content_type)
+);
+
+-- Enable RLS for social sharing tables
+ALTER TABLE daily_prompts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shareable_content ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sharing_analytics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE content_templates ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for daily_prompts
+CREATE POLICY "Users can view own daily prompts" ON daily_prompts FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own daily prompts" ON daily_prompts FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own daily prompts" ON daily_prompts FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own daily prompts" ON daily_prompts FOR DELETE USING (auth.uid() = user_id);
+
+-- Create policies for user_preferences
+CREATE POLICY "Users can view own preferences" ON user_preferences FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own preferences" ON user_preferences FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own preferences" ON user_preferences FOR UPDATE USING (auth.uid() = user_id);
+
+-- Create policies for shareable_content
+CREATE POLICY "Users can view own shareable content" ON shareable_content FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own shareable content" ON shareable_content FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own shareable content" ON shareable_content FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own shareable content" ON shareable_content FOR DELETE USING (auth.uid() = user_id);
+
+-- Create policies for sharing_analytics
+CREATE POLICY "Users can view analytics for own content" ON sharing_analytics 
+FOR SELECT USING (auth.uid() = (SELECT user_id FROM shareable_content WHERE id = content_id));
+CREATE POLICY "System can insert analytics" ON sharing_analytics FOR INSERT WITH CHECK (true);
+
+-- Create policies for content_templates (public read)
+CREATE POLICY "Anyone can view active content templates" ON content_templates FOR SELECT USING (is_active = true);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_daily_prompts_user_date ON daily_prompts(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_daily_prompts_category ON daily_prompts(category);
+CREATE INDEX IF NOT EXISTS idx_shareable_content_user_type ON shareable_content(user_id, content_type);
+CREATE INDEX IF NOT EXISTS idx_shareable_content_created_at ON shareable_content(created_at);
+CREATE INDEX IF NOT EXISTS idx_sharing_analytics_content_platform ON sharing_analytics(content_id, platform);
+
+-- Insert default content templates
+INSERT INTO content_templates (template_name, platform, content_type, template_data) VALUES
+(
+  'mood_update_story',
+  'instagram',
+  'mood_update',
+  '{
+    "format": "story",
+    "template": "{title}\n\n{content}\n\n{hashtags}",
+    "backgroundColor": "{backgroundColor}",
+    "textColor": "#FFFFFF",
+    "fontSize": 18,
+    "alignment": "center"
+  }'::jsonb
+),
+(
+  'mood_update_post',
+  'instagram',
+  'mood_update',
+  '{
+    "format": "post",
+    "template": "{content}\n\n{hashtags}",
+    "imageStyle": "gradient",
+    "textOverlay": true
+  }'::jsonb
+),
+(
+  'mood_update_video',
+  'tiktok',
+  'mood_update',
+  '{
+    "format": "video",
+    "template": "{content}",
+    "duration": 15,
+    "hashtags": "{hashtags}",
+    "videoStyle": "text_overlay"
+  }'::jsonb
+),
+(
+  'mood_update_tweet',
+  'x',
+  'mood_update',
+  '{
+    "format": "text",
+    "template": "{content}\n\n{hashtags}",
+    "maxLength": 280,
+    "includeMedia": false
+  }'::jsonb
+),
+(
+  'mood_update_post',
+  'facebook',
+  'mood_update',
+  '{
+    "format": "post",
+    "template": "{title}\n\n{content}\n\n{hashtags}",
+    "privacy": "friends",
+    "allowComments": true
+  }'::jsonb
+),
+(
+  'achievement_story',
+  'instagram',
+  'achievement',
+  '{
+    "format": "story",
+    "template": "🎉 {title}\n\n{content}\n\n{hashtags}",
+    "backgroundColor": "#98FB98",
+    "textColor": "#FFFFFF",
+    "celebrationStickers": ["🎉", "🏆", "✨"]
+  }'::jsonb
+),
+(
+  'tip_post',
+  'instagram',
+  'tip',
+  '{
+    "format": "post",
+    "template": "💡 {title}\n\n{content}\n\n{hashtags}",
+    "imageStyle": "tip_card",
+    "backgroundColor": "#FFD700"
+  }'::jsonb
+),
+(
+  'quote_story',
+  'instagram',
+  'quote',
+  '{
+    "format": "story",
+    "template": "✨ {title}\n\n{content}\n\n{hashtags}",
+    "backgroundColor": "#DDA0DD",
+    "textColor": "#FFFFFF",
+    "fontStyle": "italic"
+  }'::jsonb
+)
+ON CONFLICT (template_name, platform, content_type) DO NOTHING;
+
+-- Function to automatically update user preferences on first prompt
+CREATE OR REPLACE FUNCTION public.ensure_user_preferences()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_preferences (user_id, prompt_categories, notification_settings, privacy_settings)
+  VALUES (
+    NEW.user_id, 
+    ARRAY['gratitude', 'mindfulness', 'growth'],
+    '{"daily_prompts": true, "achievements": true, "social_updates": false}'::jsonb,
+    '{"anonymous_sharing": true, "public_profile": false}'::jsonb
+  )
+  ON CONFLICT (user_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger for user preferences
+DROP TRIGGER IF EXISTS on_daily_prompt_created ON daily_prompts;
+CREATE TRIGGER on_daily_prompt_created
+  AFTER INSERT ON daily_prompts
+  FOR EACH ROW EXECUTE PROCEDURE public.ensure_user_preferences();
+
+-- Configuration table for feature flags and remote configuration
+CREATE TABLE IF NOT EXISTS config_table (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  config_key TEXT NOT NULL UNIQUE,
+  config_value JSONB NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS for config table (admin only)
+ALTER TABLE config_table ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for config table (public read for active configs)
+CREATE POLICY "Anyone can view active configs" ON config_table FOR SELECT USING (is_active = true);
+
+-- Insert default feature flags
+INSERT INTO config_table (config_key, config_value, description) VALUES
+(
+  'social_sharing_enabled',
+  '{"enabled": true, "platforms": ["instagram", "tiktok", "x", "facebook"]}'::jsonb,
+  'Controls availability of social sharing features'
+),
+(
+  'ai_features_enabled',
+  '{"journal_analysis": true, "mood_insights": true, "crisis_detection": true}'::jsonb,
+  'Controls AI-powered features availability'
+),
+(
+  'chat_features_enabled',
+  '{"peer_chat": true, "group_rooms": true, "one_on_one": true, "moderation": true}'::jsonb,
+  'Controls chat and peer support features'
+),
+(
+  'daily_prompts_config',
+  '{"enabled": true, "categories": ["gratitude", "mindfulness", "growth", "connection", "selfcare", "resilience", "hope", "reflection"], "max_per_day": 1}'::jsonb,
+  'Configuration for daily prompts system'
+),
+(
+  'content_moderation_config',
+  '{"auto_moderation": true, "human_review": true, "crisis_keywords": ["suicide", "self-harm", "kill myself"], "sensitivity_level": "medium"}'::jsonb,
+  'Content moderation and safety settings'
+)
+ON CONFLICT (config_key) DO NOTHING;

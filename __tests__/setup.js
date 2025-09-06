@@ -10,6 +10,108 @@ jest.mock('expo-linear-gradient', () => ({
   LinearGradient: 'View'
 }));
 
+// Mock Expo vector icons
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Text',
+  MaterialIcons: 'Text',
+  FontAwesome: 'Text',
+  AntDesign: 'Text',
+  Feather: 'Text'
+}));
+
+// Mock expo-linking
+jest.mock('expo-linking', () => ({
+  Linking: {
+    openURL: jest.fn(),
+    canOpenURL: jest.fn(() => Promise.resolve(true)),
+    getInitialURL: jest.fn(() => Promise.resolve(null)),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn()
+  }
+}));
+
+// Mock React Native components
+jest.mock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+  
+  // Mock TurboModuleRegistry to prevent SettingsManager errors
+  const mockTurboModuleRegistry = {
+    getEnforcing: jest.fn(() => ({
+      getConstants: jest.fn(() => ({})),
+      get: jest.fn(),
+      set: jest.fn()
+    })),
+    get: jest.fn()
+  };
+
+  return {
+    ...RN,
+    View: 'View',
+    Text: 'Text',
+    TouchableOpacity: 'TouchableOpacity',
+    TextInput: 'TextInput',
+    ScrollView: 'ScrollView',
+    Alert: {
+      alert: jest.fn()
+    },
+    TurboModuleRegistry: mockTurboModuleRegistry,
+    Settings: {
+      get: jest.fn(),
+      set: jest.fn(),
+      watchKeys: jest.fn(),
+      clearWatch: jest.fn()
+    },
+    NativeModules: {
+      SettingsManager: {
+        getConstants: jest.fn(() => ({})),
+        get: jest.fn(),
+        set: jest.fn()
+      }
+    }
+  };
+});
+
+// Mock TensorFlow.js
+jest.mock('@tensorflow/tfjs', () => ({
+  ready: jest.fn(() => Promise.resolve()),
+  setBackend: jest.fn(),
+  getBackend: jest.fn(() => 'cpu')
+}));
+
+jest.mock('@tensorflow/tfjs-react-native', () => ({
+  platform: jest.fn()
+}));
+
+// Mock Sentry
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  captureException: jest.fn(),
+  captureMessage: jest.fn(),
+  addBreadcrumb: jest.fn(),
+  setUser: jest.fn(),
+  setTag: jest.fn(),
+  setContext: jest.fn(),
+  withScope: jest.fn((callback) => callback({
+    setTag: jest.fn(),
+    setContext: jest.fn(),
+    setLevel: jest.fn()
+  }))
+}));
+
+// Mock Supabase client without data
+jest.mock('../src/config/supabase', () => ({
+  supabase: {
+    auth: {
+      getUser: jest.fn(),
+      signInWithPassword: jest.fn(),
+      signUp: jest.fn(),
+      signOut: jest.fn(),
+      onAuthStateChange: jest.fn()
+    },
+    from: jest.fn()
+  }
+}));
+
 // Global test timeout
 jest.setTimeout(10000);
 

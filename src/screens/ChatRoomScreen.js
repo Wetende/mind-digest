@@ -231,7 +231,7 @@ export default function ChatRoomScreen({ route, navigation }) {
   const showRoomMenu = () => {
     Alert.alert(
       'Room Options',
-      `Options for ${room.name}`,
+      `Options for ${room?.name || 'this room'}`,
       [
         {
           text: 'View Members',
@@ -260,9 +260,9 @@ export default function ChatRoomScreen({ route, navigation }) {
       </TouchableOpacity>
       
       <View style={styles.roomInfo}>
-        <Text style={styles.roomName}>{room.name}</Text>
+        <Text style={styles.roomName}>{room?.name || 'Chat Room'}</Text>
         <Text style={styles.roomDescription}>
-          {room.description || `${room.memberCount || 0} members`}
+          {room?.description || `${room?.memberCount || 0} members`}
         </Text>
       </View>
 
@@ -280,7 +280,7 @@ export default function ChatRoomScreen({ route, navigation }) {
       <Ionicons name="chatbubbles-outline" size={64} color={theme.colors.gray[400]} />
       <Text style={styles.emptyStateTitle}>Start the conversation</Text>
       <Text style={styles.emptyStateText}>
-        Be the first to share something with the {room.name} community
+        Be the first to share something with the {room?.name || 'chat room'} community
       </Text>
     </View>
   );

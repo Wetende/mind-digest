@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import userProfileService from './userProfileService';
 
 class ChatService {
   // Get all chat rooms
@@ -79,6 +80,12 @@ class ChatService {
   // Send a message to a room
   async sendMessage(roomId, content, userId) {
     try {
+      // Ensure user profile exists before sending message
+      const profileResult = await userProfileService.ensureUserProfile(userId);
+      if (!profileResult.success) {
+        throw new Error(`Failed to ensure user profile: ${profileResult.error}`);
+      }
+
       const { data, error } = await supabase
         .from('peer_messages')
         .insert({

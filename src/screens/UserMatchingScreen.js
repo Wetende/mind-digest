@@ -268,14 +268,14 @@ export default function UserMatchingScreen({ navigation }) {
       <View style={styles.pairingHeader}>
         <View style={styles.userInfo}>
           <View style={styles.avatarContainer}>
-            {pairing.otherUser.avatar ? (
+            {pairing.otherUser?.avatar ? (
               <Image source={{ uri: pairing.otherUser.avatar }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Ionicons name="person" size={24} color={theme.colors.gray[500]} />
               </View>
             )}
-            {pairing.otherUser.isAnonymous && (
+            {pairing.otherUser?.isAnonymous && (
               <View style={styles.anonymousBadge}>
                 <Ionicons name="shield-checkmark" size={12} color="white" />
               </View>
@@ -283,7 +283,7 @@ export default function UserMatchingScreen({ navigation }) {
           </View>
           
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>{pairing.otherUser.name}</Text>
+            <Text style={styles.userName}>{pairing.otherUser?.name || 'Unknown User'}</Text>
             <Text style={styles.pairingStatus}>
               {pairing.status === 'pending' ? 'Pending response' : 'Active chat'}
             </Text>

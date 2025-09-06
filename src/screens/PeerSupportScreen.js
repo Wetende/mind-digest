@@ -113,8 +113,8 @@ const renderSupportRooms = () => {
             >
               <View style={styles.roomHeader}>
                 <View style={styles.roomInfo}>
-                  <Text style={styles.roomName}>{room.name}</Text>
-                  <Text style={styles.roomDescription}>{room.description}</Text>
+                  <Text style={styles.roomName}>{room?.name || 'Chat Room'}</Text>
+                  <Text style={styles.roomDescription}>{room?.description || 'No description available'}</Text>
                 </View>
                 <View style={styles.roomMeta}>
                   <Text style={styles.memberCount}>

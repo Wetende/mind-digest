@@ -1025,6 +1025,66 @@ class AIService {
 
     return riskLevel;
   }
+
+  // Generate peer recommendations based on user profile and patterns
+  async generatePeerRecommendations(options = {}) {
+    try {
+      // For now, return a basic structure that the behavior learning service expects
+      // This can be enhanced with actual AI-powered matching later
+      return {
+        supportPartners: [],
+        activityPartners: [],
+        mentorConnections: [],
+        confidence: 0.5
+      };
+    } catch (error) {
+      console.error('Failed to generate peer recommendations:', error);
+      return {
+        supportPartners: [],
+        activityPartners: [],
+        mentorConnections: [],
+        confidence: 0
+      };
+    }
+  }
+
+  // Generate content recommendations based on user patterns and context
+  async generateContentRecommendations(options = {}) {
+    try {
+      // For now, return a basic structure that the behavior learning service expects
+      // This can be enhanced with actual AI-powered content recommendations later
+      return {
+        personalized: [],
+        contextual: [],
+        confidence: 0.5
+      };
+    } catch (error) {
+      console.error('Failed to generate content recommendations:', error);
+      return {
+        personalized: [],
+        contextual: [],
+        confidence: 0
+      };
+    }
+  }
+
+  // Generate contextual adaptations based on user interaction
+  async generateContextualAdaptations(options = {}) {
+    try {
+      // For now, return basic adaptations
+      // This can be enhanced with actual AI-powered adaptations later
+      return [
+        {
+          type: 'general_suggestion',
+          message: 'Continue using the app regularly for best results',
+          confidence: 0.5
+        }
+      ];
+    } catch (error) {
+      console.error('Failed to generate contextual adaptations:', error);
+      return [];
+    }
+  }
 }
 
 export default new AIService();

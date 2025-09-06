@@ -208,7 +208,7 @@ export default function HomeScreen({ navigation }) {
         const result = await habitTrackingService.awardPoints(
           user.id,
           activityType,
-          { habitId, habitName: habit.name }
+          { habitId, habitName: habit?.name || 'Unknown Habit' }
         );
 
         if (result.success) {
@@ -375,7 +375,7 @@ export default function HomeScreen({ navigation }) {
                       styles.habitNameText,
                       habit.completed && styles.completedHabit
                     ]}>
-                      {habit.name}
+                      {habit?.name || 'Habit'}
                     </Text>
                   </View>
                 </Text>

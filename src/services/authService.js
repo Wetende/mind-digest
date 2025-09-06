@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import userProfileService from './userProfileService';
 
 class AuthService {
   // Sign up with email and password
@@ -33,6 +34,19 @@ class AuthService {
       }
       
       console.log('AuthService: Sign up successful');
+      
+      // Ensure user profile is created in users table
+      if (data?.user) {
+        console.log('Creating user profile for new user:', data.user.id);
+        const profileResult = await userProfileService.initializeNewUserProfile(data.user);
+        if (!profileResult.success) {
+          console.warn('Failed to create user profile:', profileResult.error);
+          // Don't fail the signup, but log the warning
+        } else {
+          console.log('User profile created successfully');
+        }
+      }
+      
       return { success: true, data };
     } catch (error) {
       console.error('AuthService: Sign up error:', error);
@@ -73,6 +87,17 @@ class AuthService {
       }
       
       console.log('AuthService: Sign in successful for user:', data.user.id);
+      
+      // Ensure user profile exists (in case the trigger didn't work during signup)
+      if (data?.user) {
+        const profileResult = await userProfileService.ensureUserProfile(data.user.id);
+        if (!profileResult.success) {
+          console.warn('Failed to ensure user profile exists:', profileResult.error);
+        } else if (profileResult.created) {
+          console.log('Created missing user profile during sign in');
+        }
+      }
+      
       return { success: true, data };
     } catch (error) {
       console.error('AuthService: Sign in error:', error);

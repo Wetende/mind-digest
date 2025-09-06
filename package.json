@@ -18,7 +18,7 @@
     "@react-navigation/bottom-tabs": "^7.0.0",
     "@react-navigation/native": "^7.0.0",
     "@react-navigation/stack": "^7.0.0",
-    "@sentry/react-native": "^6.20.0",
+  "@sentry/react-native": "~6.10.0",
     "@supabase/supabase-js": "^2.39.0",
     "@tanstack/react-query": "^5.85.5",
     "@tensorflow/tfjs": "^4.15.0",
@@ -26,11 +26,13 @@
     "expo": "~52.0.0",
     "expo-av": "~15.0.2",
     "expo-background-fetch": "~13.0.0",
+    "expo-clipboard": "~7.0.0",
     "expo-constants": "~17.0.0",
     "expo-facebook": "^12.2.0",
     "expo-linear-gradient": "~14.0.0",
-    "expo-linking": "^7.1.7",
+    "expo-linking": "~7.0.5",
     "expo-notifications": "~0.29.0",
+    "expo-web-browser": "~14.0.1",
     "expo-status-bar": "~2.0.0",
     "expo-task-manager": "~12.0.0",
     "react": "18.3.1",
@@ -74,10 +76,11 @@
       "^.+\\.(js|jsx|ts|tsx)$": "babel-jest"
     },
     "moduleNameMapper": {
-      "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "identity-obj-proxy"
+      "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "identity-obj-proxy",
+      "@sentry/react-native": "<rootDir>/__tests__/__mocks__/@sentry/react-native.js"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(react-native|@react-native|@testing-library|expo|@expo|react-clone-referenced-element|@react-native-community|react-navigation|@react-navigation))"
+      "node_modules/(?!(react-native|@react-native|@testing-library|expo|@expo|react-clone-referenced-element|@react-native-community|react-navigation|@react-navigation|@sentry))"
     ],
     "moduleFileExtensions": [
       "ts",

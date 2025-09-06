@@ -1,9 +1,16 @@
 import { supabase } from '../config/supabase';
+import userProfileService from './userProfileService';
 
 class MoodTrackingService {
   // Log daily mood entry
   async logMoodEntry(userId, moodData) {
     try {
+      // Ensure user profile exists before creating mood entry
+      const profileResult = await userProfileService.ensureUserProfile(userId);
+      if (!profileResult.success) {
+        throw new Error(`Failed to ensure user profile: ${profileResult.error}`);
+      }
+
       const entry = {
         user_id: userId,
         mood_score: moodData.moodScore, // 1-10 scale

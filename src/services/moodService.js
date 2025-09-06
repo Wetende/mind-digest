@@ -1,11 +1,18 @@
 import { supabase } from '../config/supabase';
 import { TABLES } from '../config/supabase';
 import habitTrackingService from './habitTrackingService';
+import userProfileService from './userProfileService';
 
 class MoodService {
   // Create a new mood entry
   async createMoodEntry(moodData) {
     try {
+      // Ensure user profile exists before creating mood entry
+      const profileResult = await userProfileService.ensureUserProfile(moodData.userId);
+      if (!profileResult.success) {
+        throw new Error(`Failed to ensure user profile: ${profileResult.error}`);
+      }
+
       const { data, error } = await supabase
         .from(TABLES.MOODS)
         .insert([{

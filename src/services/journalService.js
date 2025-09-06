@@ -2,11 +2,18 @@ import { supabase } from '../config/supabase';
 import { TABLES } from '../config/supabase';
 import aiService from './aiService';
 import habitTrackingService from './habitTrackingService';
+import userProfileService from './userProfileService';
 
 class JournalService {
   // Create a new journal entry
   async createEntry(entryData) {
     try {
+      // Ensure user profile exists before creating journal entry
+      const profileResult = await userProfileService.ensureUserProfile(entryData.userId);
+      if (!profileResult.success) {
+        throw new Error(`Failed to ensure user profile: ${profileResult.error}`);
+      }
+
       // Get AI analysis first
       const aiAnalysis = await aiService.analyzeJournalEntry(entryData.content);
       

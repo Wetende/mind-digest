@@ -104,7 +104,14 @@ class MeditationService {
 
   // Get specific exercise by ID
   getExerciseById(id) {
-    return this.breathingExercises[id.toUpperCase()] || null;
+    const exerciseMap = {
+      'box': 'BOX',
+      '478': 'FOUR_SEVEN_EIGHT',
+      'simple': 'SIMPLE'
+    };
+    
+    const key = exerciseMap[id] || id.toUpperCase();
+    return this.breathingExercises[key] || null;
   }
 
   // Get specific meditation by ID

@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase";
 import notificationService from "./notificationService";
+import userProfileService from './userProfileService';
 
 class HabitTrackingService {
   constructor() {
@@ -127,6 +128,12 @@ class HabitTrackingService {
   // Award points for completing an activity
   async awardPoints(userId, activityType, metadata = {}) {
     try {
+      // Ensure user profile exists before awarding points
+      const profileResult = await userProfileService.ensureUserProfile(userId);
+      if (!profileResult.success) {
+        throw new Error(`Failed to ensure user profile: ${profileResult.error}`);
+      }
+
       const points = this.pointValues[activityType] || 10;
       const streakBonus = await this.calculateStreakBonus(userId, activityType);
       const totalPoints = points + streakBonus;

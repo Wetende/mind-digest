@@ -35,7 +35,14 @@ export default function BreathingExercise({ visible, onClose }) {
     simple: meditationService.getExerciseById('simple'),
   };
 
-  const currentExercise = exercises[exerciseType];
+  const currentExercise = exercises[exerciseType] || {
+    name: 'Simple Breathing',
+    description: 'Focus on your breathing',
+    phases: [
+      { name: 'inhale', duration: 4, instruction: 'Breathe In' },
+      { name: 'exhale', duration: 4, instruction: 'Breathe Out' },
+    ]
+  };
   const currentPhaseIndex = useRef(0);
 
   useEffect(() => {
@@ -50,14 +57,14 @@ export default function BreathingExercise({ visible, onClose }) {
             currentPhaseIndex.current = nextPhaseIndex;
             
             const nextPhase = currentExercise.phases[nextPhaseIndex];
-            setPhase(nextPhase.name);
+            setPhase(nextPhase?.name || 'breathe');
             
             // If we completed a full cycle
             if (nextPhaseIndex === 0) {
               setCycle(prev => prev + 1);
             }
             
-            return nextPhase.duration;
+            return nextPhase?.duration || 4;
           }
           return prevCount - 1;
         });
@@ -74,12 +81,12 @@ export default function BreathingExercise({ visible, onClose }) {
         Animated.parallel([
           Animated.timing(scaleAnim, {
             toValue: 1,
-            duration: currentExercise.phases.find(p => p.name === 'inhale').duration * 1000,
+            duration: (currentExercise.phases.find(p => p?.name === 'inhale')?.duration || 4) * 1000,
             useNativeDriver: true,
           }),
           Animated.timing(opacityAnim, {
             toValue: 0.8,
-            duration: currentExercise.phases.find(p => p.name === 'inhale').duration * 1000,
+            duration: (currentExercise.phases.find(p => p?.name === 'inhale')?.duration || 4) * 1000,
             useNativeDriver: true,
           }),
         ]).start();
@@ -87,12 +94,12 @@ export default function BreathingExercise({ visible, onClose }) {
         Animated.parallel([
           Animated.timing(scaleAnim, {
             toValue: 0.5,
-            duration: currentExercise.phases.find(p => p.name === 'exhale').duration * 1000,
+            duration: (currentExercise.phases.find(p => p?.name === 'exhale')?.duration || 4) * 1000,
             useNativeDriver: true,
           }),
           Animated.timing(opacityAnim, {
             toValue: 0.3,
-            duration: currentExercise.phases.find(p => p.name === 'exhale').duration * 1000,
+            duration: (currentExercise.phases.find(p => p?.name === 'exhale')?.duration || 4) * 1000,
             useNativeDriver: true,
           }),
         ]).start();
@@ -104,8 +111,8 @@ export default function BreathingExercise({ visible, onClose }) {
     setIsActive(true);
     setCycle(0);
     currentPhaseIndex.current = 0;
-    setPhase(currentExercise.phases[0].name);
-    setCount(currentExercise.phases[0].duration);
+    setPhase(currentExercise.phases[0]?.name || 'breathe');
+    setCount(currentExercise.phases[0]?.duration || 4);
     setSessionStartTime(Date.now());
 
     // Start session tracking for authenticated users
@@ -176,7 +183,7 @@ export default function BreathingExercise({ visible, onClose }) {
   };
 
   const getCurrentInstruction = () => {
-    return currentExercise.phases.find(p => p.name === phase)?.instruction || 'Breathe';
+    return currentExercise.phases.find(p => p?.name === phase)?.instruction || 'Breathe';
   };
 
   // Audio functionality
@@ -254,8 +261,8 @@ export default function BreathingExercise({ visible, onClose }) {
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>{currentExercise.name}</Text>
-            <Text style={styles.description}>{currentExercise.description}</Text>
+            <Text style={styles.title}>{currentExercise?.name || 'Breathing Exercise'}</Text>
+            <Text style={styles.description}>{currentExercise?.description || 'Focus on your breathing'}</Text>
           </View>
 
           {/* Exercise Type Selector */}
@@ -274,7 +281,7 @@ export default function BreathingExercise({ visible, onClose }) {
                     styles.exerciseButtonText,
                     exerciseType === key && styles.selectedExerciseText,
                   ]}>
-                    {exercises[key].name}
+                    {exercises[key]?.name || 'Exercise'}
                   </Text>
                 </TouchableOpacity>
               ))}

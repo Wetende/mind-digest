@@ -15,6 +15,7 @@ export { default as habitTrackingService } from './habitTrackingService';
 export { default as socialSharingService } from './socialSharingService';
 export { default as behaviorLearningService } from './behaviorLearningService';
 export { default as recommendationEngine } from './recommendationEngine';
+export { default as userProfileService } from './userProfileService';
 export { default as recommendationAnalytics } from './recommendationAnalytics';
 export { default as notificationService } from './notificationService';
 export { default as backgroundTaskService } from './backgroundTaskService';

@@ -9,7 +9,7 @@ class RecommendationEngine {
     this.learningThreshold = 10; // Minimum interactions before AI analysis
   }
 
-  // Generate contextual recommendations based on user behavior and context
+  // Enhanced contextual recommendations with real-time adaptation
   async generateContextualRecommendations(userId, context = {}) {
     try {
       const currentState = {
@@ -20,25 +20,41 @@ class RecommendationEngine {
         patterns: await behaviorLearningService.learnUserPatterns()
       };
 
-      // Use AI service for intelligent contextual recommendations
-      if (currentState.totalInteractions > this.learningThreshold) {
+      // Get base recommendations from behavior learning service
+      const baseRecommendations = await behaviorLearningService.generateRecommendations({
+        context: currentState.context,
+        userId: userId
+      });
+
+      // Apply real-time adaptations
+      const adaptedRecommendations = await behaviorLearningService.adaptRecommendationsRealTime(
+        baseRecommendations,
+        currentState.context
+      );
+
+      // Use AI service for intelligent contextual recommendations if enough data
+      if (behaviorLearningService.userInteractions.size > this.learningThreshold) {
         const aiRecommendations = await aiService.generateContextualRecommendations({
           currentState,
           behaviorPatterns: currentState.patterns,
-          context: currentState.context
+          context: currentState.context,
+          baseRecommendations: adaptedRecommendations
         });
 
         if (aiRecommendations) {
+          // Merge AI recommendations with adapted recommendations
+          const mergedRecommendations = this.mergeRecommendations(adaptedRecommendations, aiRecommendations);
+          
           // Cache recommendations for performance
-          const cacheKey = `contextual_${userId}_${currentState.timestamp}`;
-          this.recommendationCache.set(cacheKey, aiRecommendations);
+          const cacheKey = `contextual_${userId}_${Math.floor(currentState.timestamp / 300000)}`; // 5-minute cache buckets
+          this.recommendationCache.set(cacheKey, mergedRecommendations);
 
-          return this.formatRecommendations(aiRecommendations, currentState);
+          return this.formatRecommendations(mergedRecommendations, currentState);
         }
       }
 
-      // Fallback to pattern-based recommendations
-      return await this.generatePatternBasedRecommendations(currentState);
+      // Return adapted recommendations
+      return this.formatRecommendations(adaptedRecommendations, currentState);
 
     } catch (error) {
       console.error('Failed to generate contextual recommendations:', error);
@@ -46,21 +62,26 @@ class RecommendationEngine {
     }
   }
 
-  // Generate peer-based recommendations for social features
+  // Enhanced peer recommendations with behavioral learning integration
   async generatePeerRecommendations(userId, options = {}) {
     try {
+      // Get peer recommendations from behavior learning service
+      const behaviorBasedPeerRecs = await behaviorLearningService.generatePeerRecommendations(options);
+
+      // Get traditional matching service results
       const userProfile = await this.getUserProfile(userId);
       const matchResult = await matchingService.findMatches(userId);
       const compatiblePeers = matchResult.success ? matchResult.data : [];
 
-      const peerRecommendations = {
-        supportPartners: [],
-        activityPartners: [],
-        mentorMentee: [],
-        groupActivities: []
+      // Merge behavioral and traditional peer recommendations
+      const mergedPeerRecommendations = {
+        supportPartners: [...(behaviorBasedPeerRecs.supportPartners || [])],
+        activityPartners: [...(behaviorBasedPeerRecs.activityPartners || [])],
+        mentorMentee: [...(behaviorBasedPeerRecs.mentorConnections || [])],
+        groupActivities: [...(behaviorBasedPeerRecs.groupSuggestions || [])]
       };
 
-      // Use AI for peer matching with behavioral insights
+      // Enhance traditional matches with behavioral insights
       const peerData = await Promise.all(
         compatiblePeers.map(peer =>
           this.getPeerBehavioralProfile(peer.id).then(behavioralProfile => ({
@@ -70,26 +91,44 @@ class RecommendationEngine {
         )
       );
 
+      // Use AI for peer matching with behavioral insights
       const aiPeerSuggestions = await aiService.generatePeerRecommendations({
         userProfile,
         compatiblePeers: peerData,
         userPatterns: await behaviorLearningService.learnUserPatterns(),
+        behaviorBasedRecommendations: behaviorBasedPeerRecs,
         options
       });
 
       if (aiPeerSuggestions) {
-        peerRecommendations.aiSuggestedPeers = aiPeerSuggestions;
+        mergedPeerRecommendations.aiSuggestedPeers = aiPeerSuggestions;
+        
+        // Merge AI suggestions with existing recommendations
+        mergedPeerRecommendations.supportPartners = this.mergePeerLists(
+          mergedPeerRecommendations.supportPartners,
+          aiPeerSuggestions.supportPartners || []
+        );
       }
 
       // Enhance with behavioral matching
       const enhancedPeers = await this.enhancePeerMatches(userId, compatiblePeers);
-      peerRecommendations.supportPartners.push(...enhancedPeers);
+      mergedPeerRecommendations.supportPartners = this.mergePeerLists(
+        mergedPeerRecommendations.supportPartners,
+        enhancedPeers
+      );
 
-      return peerRecommendations;
+      // Apply real-time filtering based on current context
+      const context = await behaviorLearningService.getCurrentContext();
+      const filteredRecommendations = await this.applyContextualPeerFiltering(
+        mergedPeerRecommendations,
+        context
+      );
+
+      return filteredRecommendations;
 
     } catch (error) {
       console.error('Failed to generate peer recommendations:', error);
-      return { supportPartners: [], activityPartners: [], mentorMentee: [] };
+      return { supportPartners: [], activityPartners: [], mentorMentee: [], groupActivities: [] };
     }
   }
 
@@ -451,15 +490,253 @@ class RecommendationEngine {
     }
   }
 
+  // Helper methods for enhanced recommendation system
+
+  mergeRecommendations(baseRecommendations, aiRecommendations) {
+    const merged = { ...baseRecommendations };
+
+    // Merge content recommendations
+    if (aiRecommendations.contentRecommendations) {
+      merged.contentRecommendations = merged.contentRecommendations || {};
+      merged.contentRecommendations.personalizedContent = this.mergeContentLists(
+        merged.contentRecommendations.personalizedContent || [],
+        aiRecommendations.contentRecommendations.personalizedContent || []
+      );
+    }
+
+    // Merge peer recommendations
+    if (aiRecommendations.peerRecommendations) {
+      merged.peerRecommendations = merged.peerRecommendations || {};
+      merged.peerRecommendations.supportPartners = this.mergePeerLists(
+        merged.peerRecommendations.supportPartners || [],
+        aiRecommendations.peerRecommendations.supportPartners || []
+      );
+    }
+
+    // Merge AI suggestions
+    if (aiRecommendations.aiSuggestions) {
+      merged.aiSuggestions = [
+        ...(merged.aiSuggestions || []),
+        ...aiRecommendations.aiSuggestions
+      ];
+    }
+
+    // Update confidence score
+    merged.confidence = Math.max(
+      merged.confidence || 0,
+      aiRecommendations.confidence || 0
+    );
+
+    return merged;
+  }
+
+  mergeContentLists(list1, list2) {
+    const merged = [...list1];
+    
+    list2.forEach(item2 => {
+      const existingIndex = merged.findIndex(item1 => 
+        item1.type === item2.type && item1.id === item2.id
+      );
+      
+      if (existingIndex >= 0) {
+        // Merge scores and combine reasons
+        merged[existingIndex] = {
+          ...merged[existingIndex],
+          score: Math.max(merged[existingIndex].score || 0, item2.score || 0),
+          reason: `${merged[existingIndex].reason}; ${item2.reason}`,
+          aiEnhanced: true
+        };
+      } else {
+        merged.push({ ...item2, aiEnhanced: true });
+      }
+    });
+
+    return merged.sort((a, b) => (b.score || 0) - (a.score || 0));
+  }
+
+  mergePeerLists(list1, list2) {
+    const merged = [...list1];
+    
+    list2.forEach(peer2 => {
+      const existingIndex = merged.findIndex(peer1 => peer1.id === peer2.id);
+      
+      if (existingIndex >= 0) {
+        // Merge compatibility scores
+        merged[existingIndex] = {
+          ...merged[existingIndex],
+          compatibilityScore: Math.max(
+            merged[existingIndex].compatibilityScore || 0,
+            peer2.compatibilityScore || 0
+          ),
+          aiEnhanced: true
+        };
+      } else {
+        merged.push({ ...peer2, aiEnhanced: true });
+      }
+    });
+
+    return merged.sort((a, b) => (b.compatibilityScore || 0) - (a.compatibilityScore || 0));
+  }
+
+  async applyContextualPeerFiltering(peerRecommendations, context) {
+    try {
+      // Filter based on current mood and stress levels
+      if (context.mood && ['anxious', 'stressed'].includes(behaviorLearningService.normalizeMood(context.mood.emotion))) {
+        // Prioritize supportive peers over activity partners during stress
+        peerRecommendations.supportPartners = peerRecommendations.supportPartners.slice(0, 5);
+        peerRecommendations.activityPartners = peerRecommendations.activityPartners.slice(0, 2);
+      }
+
+      // Filter based on time of day
+      if (context.timeOfDay === 'night') {
+        // Reduce social recommendations during late hours
+        peerRecommendations.activityPartners = [];
+        peerRecommendations.groupActivities = [];
+      }
+
+      // Filter based on social energy levels
+      const recentSocialInteractions = await behaviorLearningService.getRecentInteractions(10)
+        .filter(interaction => interaction.type.startsWith('social_'));
+      
+      if (recentSocialInteractions.length > 5) {
+        // User has been socially active, reduce recommendations
+        peerRecommendations.supportPartners = peerRecommendations.supportPartners.slice(0, 3);
+      }
+
+      return peerRecommendations;
+    } catch (error) {
+      console.error('Failed to apply contextual peer filtering:', error);
+      return peerRecommendations;
+    }
+  }
+
+  // Track recommendation effectiveness for learning
+  async trackRecommendationEngagement(userId, recommendationId, action, data = {}) {
+    try {
+      // Track in behavior learning service
+      await behaviorLearningService.trackInteraction('recommendation_engagement', {
+        recommendationId,
+        action,
+        effectiveness: data.effectiveness || null,
+        userRating: data.userRating || null,
+        ...data
+      });
+
+      // Store in recommendation history
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase
+          .from('recommendation_history')
+          .insert({
+            user_id: user.id,
+            recommendation_type: data.recommendationType || 'general',
+            recommendation_data: { recommendationId, ...data },
+            context_at_time: await behaviorLearningService.getCurrentContext(),
+            user_action: action,
+            effectiveness_rating: data.effectiveness || null
+          });
+
+        if (error) {
+          console.warn('Failed to store recommendation history:', error);
+        }
+      }
+
+      // Update recommendation analytics
+      await this.updateRecommendationAnalytics(action, data);
+
+    } catch (error) {
+      console.error('Failed to track recommendation engagement:', error);
+    }
+  }
+
+  async updateRecommendationAnalytics(action, data) {
+    try {
+      // Update internal analytics
+      if (!this.analytics) {
+        this.analytics = {
+          totalRecommendations: 0,
+          acceptedRecommendations: 0,
+          effectiveRecommendations: 0,
+          averageRating: 0,
+          categoryPerformance: {}
+        };
+      }
+
+      this.analytics.totalRecommendations++;
+
+      if (['accepted', 'completed'].includes(action)) {
+        this.analytics.acceptedRecommendations++;
+      }
+
+      if (data.effectiveness && data.effectiveness >= 0.7) {
+        this.analytics.effectiveRecommendations++;
+      }
+
+      if (data.userRating) {
+        this.analytics.averageRating = (
+          (this.analytics.averageRating * (this.analytics.totalRecommendations - 1)) + 
+          data.userRating
+        ) / this.analytics.totalRecommendations;
+      }
+
+      // Update category performance
+      if (data.category) {
+        if (!this.analytics.categoryPerformance[data.category]) {
+          this.analytics.categoryPerformance[data.category] = {
+            total: 0,
+            accepted: 0,
+            effective: 0
+          };
+        }
+
+        this.analytics.categoryPerformance[data.category].total++;
+        
+        if (['accepted', 'completed'].includes(action)) {
+          this.analytics.categoryPerformance[data.category].accepted++;
+        }
+
+        if (data.effectiveness && data.effectiveness >= 0.7) {
+          this.analytics.categoryPerformance[data.category].effective++;
+        }
+      }
+
+    } catch (error) {
+      console.error('Failed to update recommendation analytics:', error);
+    }
+  }
+
   // Get real-time metrics for recommendation analytics
   getRecommendationMetrics() {
+    const behaviorMetrics = behaviorLearningService.userInteractions.size;
+    
     return {
       cacheSize: this.recommendationCache.size,
-      cacheHitRate: 0, // Would need to track hits during implementation
-      averageGenerationTime: 0, // Would need to measure during generation
-      recommendationDiversity: 0, // Would analyze category distribution
-      userSatisfaction: 0 // Would need user feedback tracking
+      behaviorDataPoints: behaviorMetrics,
+      adaptationCacheSize: behaviorLearningService.realTimeAdaptations.size,
+      analytics: this.analytics || {},
+      learningThreshold: this.learningThreshold,
+      isLearningActive: behaviorMetrics > this.learningThreshold
     };
+  }
+
+  // Get personalized recommendation insights
+  async getRecommendationInsights(userId) {
+    try {
+      const patterns = await behaviorLearningService.learnUserPatterns();
+      const context = await behaviorLearningService.getCurrentContext();
+      
+      return {
+        userPatterns: patterns,
+        currentContext: context,
+        adaptations: Array.from(behaviorLearningService.realTimeAdaptations.entries()),
+        recentInteractions: behaviorLearningService.getRecentInteractions(10),
+        behaviorProfile: behaviorLearningService.userBehaviorProfile,
+        metrics: this.getRecommendationMetrics()
+      };
+    } catch (error) {
+      console.error('Failed to get recommendation insights:', error);
+      return null;
+    }
   }
 }
 

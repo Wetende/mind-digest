@@ -37,9 +37,9 @@ Mind-digest is a mental health and wellness mobile application that combines pee
 #### Acceptance Criteria
 
 1. WHEN a user creates wellness content THEN the system SHALL provide daily prompts for anonymized sharing
-2. WHEN a user chooses to share content THEN the system SHALL format it appropriately for Instagram Stories, TikTok videos, X posts, and Facebook posts
+2. WHEN a user chooses to share content THEN the system SHALL format it appropriately for Instagram Stories, TikTok videos, X posts, and Facebook posts using proper SDK integrations (expo-facebook for Instagram/Facebook, TikTok SDK for TikTok, twitter-lite for X/Twitter)
 3. WHEN content is shared THEN the system SHALL maintain user anonymity while preserving the message's impact
-4. WHEN a user exports content THEN the system SHALL provide one-tap sharing to their selected platforms
+4. WHEN a user exports content THEN the system SHALL provide one-tap sharing to their selected platforms through authenticated API connections
 5. IF a user wants to customize content THEN the system SHALL allow platform-specific modifications before sharing
 
 ### Requirement 4
@@ -125,3 +125,15 @@ Mind-digest is a mental health and wellness mobile application that combines pee
 3. WHEN user mood or context changes THEN the system SHALL adapt recommendations in real-time
 4. WHEN similar users exist THEN the system SHALL suggest potential peer connections based on compatibility
 5. IF recommendations become stale THEN the system SHALL refresh suggestions to maintain engagement and relevance
+
+### Requirement 11
+
+**User Story:** As a developer implementing social sharing features, I want proper SDK integrations for all supported platforms, so that users can seamlessly share content with full platform functionality.
+
+#### Acceptance Criteria
+
+1. WHEN implementing Instagram/Facebook sharing THEN the system SHALL use expo-facebook SDK (v12.2.0+) for authenticated API access
+2. WHEN implementing TikTok sharing THEN the system SHALL integrate TikTok SDK for Business or TikTok Login Kit for direct video uploads
+3. WHEN implementing X/Twitter sharing THEN the system SHALL use twitter-lite SDK (v1.1.0+) for API v2 compatibility
+4. WHEN users authenticate with platforms THEN the system SHALL securely store and manage OAuth tokens
+5. IF SDK integration fails THEN the system SHALL gracefully fallback to URL scheme sharing while notifying users of limited functionality
